@@ -3,6 +3,10 @@ name = "task-digest"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["opentitan"]
+opentitan = []
+
 [dependencies]
 # Core Hubris runtime
 userlib = { path = "../../sys/userlib" }
@@ -12,7 +16,7 @@ idol-runtime.workspace = true
 
 # Hardware abstraction layers  
 openprot-hal-blocking = { path = "../../../openprot/hal/blocking" }
-openprot-platform-baremetal = { path = "../../../openprot/platform/impls/baremetal", features = ["opentitan"] }
+openprot-platform-opentitan = { path = "../../../openprot/platform/impls/opentitan", features = ["hmac"] }
 
 # Error handling and debugging
 derive-idol-err = { path = "../../lib/derive-idol-err" }

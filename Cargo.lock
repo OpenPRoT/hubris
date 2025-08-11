@@ -4084,17 +4084,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "openprot-platform-baremetal"
+name = "openprot-platform-opentitan"
 version = "0.1.0"
 dependencies = [
  "openprot-hal-blocking",
- "openprot-platform-traits",
  "zerocopy 0.8.25",
 ]
-
-[[package]]
-name = "openprot-platform-traits"
-version = "0.1.0"
 
 [[package]]
 name = "ordered-toml"
@@ -5367,7 +5362,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "openprot-hal-blocking",
- "openprot-platform-baremetal",
+ "openprot-platform-opentitan",
  "ringbuf",
  "userlib",
  "zerocopy 0.8.25",
