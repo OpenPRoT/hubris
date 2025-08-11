@@ -1,0 +1,37 @@
+[package]
+name = "task-digest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core Hubris runtime
+userlib = { path = "../../sys/userlib" }
+
+# IPC and interface generation
+idol-runtime.workspace = true
+
+# Hardware abstraction layers  
+openprot-hal-blocking = { path = "../../../openprot/hal/blocking" }
+openprot-platform-baremetal = { path = "../../../openprot/platform/impls/baremetal", features = ["opentitan"] }
+
+# Error handling and debugging
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
+
+# Utilities
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+heapless.workspace = true
+num-derive.workspace = true
+num-traits.workspace = true
+
+[build-dependencies]
+idol.workspace = true
+
+[[bin]]
+name = "task-digest"
+path = "src/main.rs"
+
+[lints]
+workspace = true
