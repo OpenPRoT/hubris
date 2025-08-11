@@ -1050,6 +1050,7 @@ dependencies = [
  "volatile-const",
 ]
 
+
 [[package]]
 name = "drv-cosmo-hf"
 version = "0.1.0"
@@ -1119,6 +1120,20 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-cpu-power-state",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "drv-digest-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
  "idol",
  "idol-runtime",
  "num-traits",
