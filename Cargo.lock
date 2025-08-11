@@ -665,7 +665,7 @@ checksum = "cd20d4ac4aa86f4f75f239d59e542ef67de87cce2c282818dc6e84155d3ea126"
 dependencies = [
  "bare-metal 0.2.5",
  "bitfield 0.13.2",
- "embedded-hal",
+ "embedded-hal 0.2.6",
  "volatile-register",
 ]
 
@@ -2847,6 +2847,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-hal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3577,7 +3583,7 @@ dependencies = [
 name = "lib-lpc55-usart"
 version = "0.1.0"
 dependencies = [
- "embedded-hal",
+ "embedded-hal 0.2.6",
  "lpc55-pac",
  "nb 1.0.0",
  "unwrap-lite",
@@ -4068,6 +4074,27 @@ name = "once_cell"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+
+[[package]]
+name = "openprot-hal-blocking"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "zerocopy 0.8.25",
+]
+
+[[package]]
+name = "openprot-platform-baremetal"
+version = "0.1.0"
+dependencies = [
+ "openprot-hal-blocking",
+ "openprot-platform-traits",
+ "zerocopy 0.8.25",
+]
+
+[[package]]
+name = "openprot-platform-traits"
+version = "0.1.0"
 
 [[package]]
 name = "ordered-toml"
@@ -5329,6 +5356,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-digest"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "heapless",
+ "idol",
+ "idol-runtime",
+ "num-derive 0.4.2",
+ "num-traits",
+ "openprot-hal-blocking",
+ "openprot-platform-baremetal",
+ "openprot-platform-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy 0.8.25",
+]
+
+[[package]]
 name = "task-dump-agent"
 version = "0.1.0"
 dependencies = [
@@ -5422,6 +5467,19 @@ dependencies = [
  "stm32h7",
  "task-jefe-api",
  "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
+name = "task-hash-client"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "drv-digest-api",
+ "idol",
+ "num-derive 0.4.2",
+ "num-traits",
  "userlib",
 ]
 

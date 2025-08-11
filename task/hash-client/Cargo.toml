@@ -1,0 +1,24 @@
+[package]
+name = "task-hash-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-digest-api = { path = "../../drv/digest-api" }
+userlib = { path = "../../sys/userlib" }
+cortex-m.workspace = true
+num-derive.workspace = true
+num-traits.workspace = true
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+idol.workspace = true
+
+[[bin]]
+name = "task-hash-client"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
