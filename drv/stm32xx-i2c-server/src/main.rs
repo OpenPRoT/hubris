@@ -507,6 +507,22 @@ fn main() -> ! {
                 caller.reply(total);
                 Ok(())
             }
+            Op::ConfigureSlaveAddress => {
+                // TODO: Implement slave address configuration
+                Err(ResponseCode::OperationNotSupported)
+            }
+            Op::EnableSlaveReceive => {
+                // TODO: Implement slave receive enable
+                Err(ResponseCode::OperationNotSupported)
+            }
+            Op::DisableSlaveReceive => {
+                // TODO: Implement slave receive disable
+                Err(ResponseCode::OperationNotSupported)
+            }
+            Op::CheckSlaveBuffer => {
+                // TODO: Implement slave buffer check
+                Err(ResponseCode::OperationNotSupported)
+            }
         });
     }
 }
