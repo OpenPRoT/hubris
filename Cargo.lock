@@ -1368,6 +1368,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "serde",
+ "serde-big-array 0.4.1",
 ]
 
 [[package]]
