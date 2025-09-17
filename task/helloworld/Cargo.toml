@@ -1,0 +1,18 @@
+[package]
+name = "task-helloworld"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-helloworld"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

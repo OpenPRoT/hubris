@@ -1,0 +1,20 @@
+[package]
+name = "lib-ast1060-uart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aspeed-ddk = { workspace = true }
+ast1060-pac = { workspace = true }
+embedded-hal = { workspace = true }
+nb = { workspace = true }
+
+unwrap-lite = { path = "../../lib/unwrap-lite" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

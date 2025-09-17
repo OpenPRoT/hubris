@@ -1,0 +1,50 @@
+name = "ast1060-i2c-scaffold"
+target = "thumbv7em-none-eabihf"
+board = "ast1060-rot"
+chip = "../../chips/ast1060"
+stacksize = 1024 
+
+[kernel]
+name = "ast1060-i2c-scaffold"
+requires = {flash = 32000, ram = 4096}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 8192, ram = 4096}
+start = true
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.i2c]
+name = "drv-mock-i2c"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+features = ["mock-only"]
+stacksize = 2048
+notifications = ["i2c-irq"]
+
+[tasks.i2c_client]
+name = "task-i2c-client"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+stacksize = 1024
+task-slots = ["i2c", "uart_driver"]
+
+[tasks.uart_driver]
+name = "drv-ast1060-uart"
+priority = 2
+max-sizes = {flash = 8192, ram = 2048}
+uses = ["uart"]
+start = true
+notifications = ["uart-irq"]
+interrupts = {"uart.irq" = "uart-irq"}

@@ -1,0 +1,17 @@
+[package]
+name = "task-i2c-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-i2c-api = { path = "../../drv/i2c-api", features = ["component-id"] }
+drv-i2c-types = { path = "../../drv/i2c-types" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+zerocopy = { version = "0.7", default-features = false, features = ["derive"] }
+ringbuf = { path = "../../lib/ringbuf" }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[features]
+hardware = []

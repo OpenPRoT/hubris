@@ -48,6 +48,8 @@ path = "lib/counters"
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 array-init = { version = "2.1.0" }
 arrayvec = { version = "0.7.4", default-features = false }
+aspeed-ddk = { git = "https://github.com/aspeedtech-bmc/aspeed-rust.git" }
+ast1060-pac = { git = "https://github.com/aspeedtech-bmc/ast1060-pac.git" }
 atty = { version = "0.2", default-features = false }
 bitfield = { version = "0.13", default-features = false }
 bitflags = { version = "2.5.0", default-features = false }
@@ -95,7 +97,7 @@ memoffset = { version = "0.6.5", default-features = false }
 minicbor = { version = "2.1.1", default-features = false }
 minicbor-serde = { version = "0.6.0", default-features = false }
 multimap = { version = "0.8.3", default-features = false }
-nb = { version = "1", default-features = false }
+nb = { version = "1.1", default-features = false }
 num = { version = "0.4", default-features = false }
 num-derive = { version = "0.4", default-features = false }
 num-traits = { version = "0.2.12", default-features = false }
@@ -163,6 +165,11 @@ tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
+
+# OpenPRot
+openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
+openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
+openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
 
 [patch.crates-io]
 # See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2

@@ -1,0 +1,158 @@
+# AST1060 SoC peripheral definitions
+# 
+# This file defines the peripheral memory map for the ASPEED AST1060 ARM Cortex-M4
+# system-on-chip, including base addresses, register region sizes, and interrupt 
+# assignments for use with the Hubris operating system.
+
+# Hardware Security Engine - cryptographic acceleration
+[hace_controller]
+address = 0x7e6d0000
+size = 0x400
+
+# Universal Asynchronous Receiver/Transmitter - debug console
+[uart]
+address = 0x7e784000
+size = 0x1000
+interrupts = { irq = 8 }
+
+# I2C Controllers (0-13) - Inter-Integrated Circuit communication
+# The AST1060 provides 14 independent I2C controllers for device communication
+# Each controller supports master/slave modes, buffer mode, and DMA transfers
+# Base addresses are spaced 0x80 bytes apart starting from 0x7e7b0080
+
+[i2c0]
+address = 0x7e7b0080
+size = 0x80
+interrupts = { irq = 110 }
+
+[i2c1]
+address = 0x7e7b0100
+size = 0x80
+interrupts = { irq = 111 }
+
+[i2c2]
+address = 0x7e7b0180
+size = 0x80
+interrupts = { irq = 112 }
+
+[i2c3]
+address = 0x7e7b0200
+size = 0x80
+interrupts = { irq = 113 }
+
+[i2c4]
+address = 0x7e7b0280
+size = 0x80
+interrupts = { irq = 114 }
+
+[i2c5]
+address = 0x7e7b0300
+size = 0x80
+interrupts = { irq = 115 }
+
+[i2c6]
+address = 0x7e7b0380
+size = 0x80
+interrupts = { irq = 116 }
+
+[i2c7]
+address = 0x7e7b0400
+size = 0x80
+interrupts = { irq = 117 }
+
+[i2c8]
+address = 0x7e7b0480
+size = 0x80
+interrupts = { irq = 118 }
+
+[i2c9]
+address = 0x7e7b0500
+size = 0x80
+interrupts = { irq = 119 }
+
+[i2c10]
+address = 0x7e7b0580
+size = 0x80
+interrupts = { irq = 120 }
+
+[i2c11]
+address = 0x7e7b0600
+size = 0x80
+interrupts = { irq = 121 }
+
+[i2c12]
+address = 0x7e7b0680
+size = 0x80
+interrupts = { irq = 122 }
+
+[i2c13]
+address = 0x7e7b0700
+size = 0x80
+interrupts = { irq = 123 }
+
+# I2C Global Controller - shared configuration and timing control
+# Manages global I2C settings including clock dividers, recovery timeouts,
+# and multi-master arbitration parameters
+[i2c_global]
+address = 0x7e7b0000
+size = 0x80
+
+# I2C Buffer Controllers (0-13) - dedicated buffer mode transfer memory
+# Each I2C controller has an associated 32-byte buffer region for efficient
+# data transfers in buffer mode operation. Buffer addresses are spaced 0x20
+# bytes apart starting from 0x7e7b0c00
+[i2c_buffer0]
+address = 0x7e7b0c00
+size = 0x20
+
+[i2c_buffer1]
+address = 0x7e7b0c20
+size = 0x20
+
+[i2c_buffer2]
+address = 0x7e7b0c40
+size = 0x20
+
+[i2c_buffer3]
+address = 0x7e7b0c60
+size = 0x20
+
+[i2c_buffer4]
+address = 0x7e7b0c80
+size = 0x20
+
+[i2c_buffer5]
+address = 0x7e7b0ca0
+size = 0x20
+
+[i2c_buffer6]
+address = 0x7e7b0cc0
+size = 0x20
+
+[i2c_buffer7]
+address = 0x7e7b0ce0
+size = 0x20
+
+[i2c_buffer8]
+address = 0x7e7b0d00
+size = 0x20
+
+[i2c_buffer9]
+address = 0x7e7b0d20
+size = 0x20
+
+[i2c_buffer10]
+address = 0x7e7b0d40
+size = 0x20
+
+[i2c_buffer11]
+address = 0x7e7b0d60
+size = 0x20
+
+[i2c_buffer12]
+address = 0x7e7b0d80
+size = 0x20
+
+[i2c_buffer13]
+address = 0x7e7b0da0
+size = 0x20

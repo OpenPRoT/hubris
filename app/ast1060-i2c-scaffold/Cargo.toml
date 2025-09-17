@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "ast1060-i2c-scaffold"
+version = "0.1.0"
+
+[features]
+#dump = ["kern/dump"]
+jtag-halt = []
+
+[dependencies]
+ast1060-pac = { workspace = true, features = ["rt"] }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+kern = { path = "../../sys/kern" }
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "ast1060-i2c-scaffold"
+test = false
+bench = false

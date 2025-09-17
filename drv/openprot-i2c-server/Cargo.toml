@@ -1,0 +1,35 @@
+[package]
+name = "drv-mock-i2c"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "drv-mock-i2c"
+path = "src/main.rs"
+
+
+[dependencies]
+bitfield = { workspace = true }
+cortex-m = { workspace = true }
+embedded-hal = { workspace = true }
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+heapless = { workspace = true }
+
+drv-i2c-api = { path = "../i2c-api" }
+drv-i2c-types = { path = "../i2c-types" }
+ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
+userlib = { path = "../../sys/userlib" }
+fixedmap = { path = "../../lib/fixedmap" }
+
+[features]
+default = ["mock-only"]
+mock-only = []
+hardware = []  # Enable this for real hardware builds
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[lints]
+workspace = true

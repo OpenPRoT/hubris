@@ -61,6 +61,8 @@ use serde_big_array::BigArray;
 use derive_idol_err::IdolError;
 use enum_kinds::EnumKind;
 
+pub mod traits;
+
 #[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
     WriteRead = 1,
