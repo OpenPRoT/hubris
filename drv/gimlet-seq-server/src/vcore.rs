@@ -61,7 +61,8 @@ enum Trace {
     StatusMfrSpecific(Result<u8, ResponseCode>),
     Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    EreportSentOff(usize),
+    EreportSent(usize),
+    EreportLost(usize, packrat_api::EreportWriteError),
     EreportTooBig,
 }
 
@@ -138,7 +139,7 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_notification(&self) {
+    pub fn handle_notification(&self, ereport_buf: &mut [u8]) {
         let now = sys_get_timer().now;
         let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
@@ -148,7 +149,7 @@ impl VCore {
         });
 
         if asserted {
-            self.read_pmbus_status(now);
+            self.read_pmbus_status(now, ereport_buf);
             // Clear the fault now so that PMALERT_L is reasserted if a
             // subsequent fault occurs. Note that if the fault *condition*
             // continues, the fault bits in the status registers will remain
@@ -161,7 +162,7 @@ impl VCore {
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 
-    fn read_pmbus_status(&self, now: u64) {
+    fn read_pmbus_status(&self, now: u64, ereport_buf: &mut [u8]) {
         use pmbus::commands::raa229618::STATUS_WORD;
 
         // Read PMBus status registers and prepare an ereport.
@@ -266,15 +267,31 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
         let ereport = Ereport {
-            k: "pmbus.alert",
+            k: "hw.pwr.pmbus.alert",
             v: 0,
-            dev_id: self.device.i2c_device().component_id(),
+            refdes: self.device.i2c_device().component_id(),
             rail: "VDD_VCORE",
             time: now,
             pwr_good,
-            status,
+            pmbus_status: status,
         };
-        deliver_ereport(&self.packrat, &ereport);
+        match self
+            .packrat
+            .serialize_ereport(&ereport, &mut ereport_buf[..])
+        {
+            Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+            Err(task_packrat_api::EreportSerializeError::Packrat {
+                len,
+                err,
+            }) => {
+                ringbuf_entry!(Trace::EreportLost(len, err))
+            }
+            Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+                ringbuf_entry!(Trace::EreportTooBig)
+            }
+        }
+        // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
+        // subsequent ereport for that.
 
         // If the `INPUT_FAULT` bit in `STATUS_WORD` is set, or any bit is hot
         // in `STATUS_INPUT`, sample Vin in order to record the voltage dip in
@@ -324,31 +341,9 @@ struct PmbusStatus {
 struct Ereport {
     k: &'static str,
     v: usize,
-    dev_id: &'static str,
+    refdes: &'static str,
     rail: &'static str,
     time: u64,
     pwr_good: Option<bool>,
-    status: PmbusStatus,
-}
-
-// This is in its own function so that the ereport buffer and `Ereport` struct
-// are only on the stack while we're using it, and not for the entireity of
-// `record_pmbus_status`, which calls into a bunch of other functions. This may
-// reduce our stack depth a bit.
-#[inline(never)]
-fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
-    let mut ereport_buf = [0u8; 128];
-    let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
-    let mut s = minicbor_serde::Serializer::new(writer);
-    match data.serialize(&mut s) {
-        Ok(_) => {
-            let len = s.into_encoder().into_writer().position();
-            packrat.deliver_ereport(&ereport_buf[..len]);
-            ringbuf_entry!(Trace::EreportSentOff(len));
-        }
-        Err(_) => {
-            // XXX(eliza): ereport didn't fit in buffer...what do
-            ringbuf_entry!(Trace::EreportTooBig);
-        }
-    }
+    pmbus_status: PmbusStatus,
 }
