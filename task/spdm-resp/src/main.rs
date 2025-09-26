@@ -26,15 +26,17 @@ use spdm_lib::codec::MessageBuf;
 
 /// MCTP-based SPDM Transport implementation
 /// This is a minimal stub since our architecture handles transport through the MCTP listener
-pub struct MctpSpdmTransport;
+pub struct MctpSpdmTransport <'a, T: Listener>{
+    listener: &'a T,
+}
 
-impl MctpSpdmTransport {
-    pub fn new() -> Self {
-        Self
+impl <'a, T: Listener> MctpSpdmTransport <'a, T> {
+    pub fn new(listener: &'a T) -> Self {
+        Self { listener }
     }
 }
 
-impl SpdmTransport for MctpSpdmTransport {
+impl<'a, T: Listener> SpdmTransport for MctpSpdmTransport<'a, T> {
     fn send_request(&mut self, _dest_eid: u8, _req: &mut MessageBuf) -> TransportResult<()> {
         // For a responder, we don't typically send requests
         Err(TransportError::ResponseNotExpected)
