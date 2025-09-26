@@ -198,6 +198,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-spdm-responder"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+]
+
+[[package]]
 name = "ast1060-starter"
 version = "0.1.0"
 dependencies = [
@@ -5229,6 +5239,28 @@ source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699
 dependencies = [
  "num-derive 0.3.3",
  "num-traits",
+]
+
+[[package]]
+name = "spdm-lib"
+version = "0.1.0"
+source = "git+https://github.com/rusty1968/spdm-lib.git?branch=antrocha%2Fresponder-app-crypto#80b682d3e69b309286ed5638636925973b4d5f8d"
+dependencies = [
+ "bitfield 0.14.0",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
+name = "spdm-resp"
+version = "0.1.0"
+dependencies = [
+ "heapless 0.7.17",
+ "mctp",
+ "mctp-api",
+ "spdm-lib",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
