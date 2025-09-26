@@ -23,39 +23,47 @@ use mctp_api::Stack;
 use userlib::*;
 use spdm_lib::platform::transport::{SpdmTransport, TransportResult, TransportError};
 use spdm_lib::codec::MessageBuf;
+use spdm_lib::context::SpdmContext;
+use spdm_lib::protocol::{DeviceCapabilities, CapabilityFlags};
+use spdm_lib::protocol::version::SpdmVersion;
+use spdm_lib::protocol::algorithms::{
+    LocalDeviceAlgorithms, AlgorithmPriorityTable, DeviceAlgorithms,
+    MeasurementSpecification, MeasurementHashAlgo, BaseAsymAlgo, BaseHashAlgo, 
+    DheNamedGroup, AeadCipherSuite, KeySchedule, OtherParamSupport, MelSpecification,
+    ReqBaseAsymAlg
+};
 
 /// MCTP-based SPDM Transport implementation
-/// This is a minimal stub since our architecture handles transport through the MCTP listener
-pub struct MctpSpdmTransport <'a, T: Listener>{
-    listener: &'a T,
+pub struct MctpSpdmTransport<'a, T: Listener> {
+    listener: &'a mut T,
+    buffer: &'a mut [u8],
+    response_channel: Option<RespChannel>,
 }
 
-impl <'a, T: Listener> MctpSpdmTransport <'a, T> {
-    pub fn new(listener: &'a T) -> Self {
-        Self { listener }
+impl<'a, T: Listener> MctpSpdmTransport<'a, T> {
+    pub fn new(listener: &'a mut T, buffer: &'a mut [u8]) -> Self {
+        Self { listener, buffer, response_channel: None }
     }
 }
 
 impl<'a, T: Listener> SpdmTransport for MctpSpdmTransport<'a, T> {
-    fn send_request(&mut self, _dest_eid: u8, _req: &mut MessageBuf) -> TransportResult<()> {
+    fn send_request(&mut self, _dest_eid: u8, _req: &mut MessageBuf<'_>) -> TransportResult<()> {
         // For a responder, we don't typically send requests
         Err(TransportError::ResponseNotExpected)
     }
 
-    fn receive_response(&mut self, _rsp: &mut MessageBuf) -> TransportResult<()> {
+    fn receive_response(&mut self, _rsp: &mut MessageBuf<'_>) -> TransportResult<()> {
         // For a responder, we don't typically receive responses
         Err(TransportError::ResponseNotExpected)
     }
 
-    fn receive_request(&mut self, _req: &mut MessageBuf) -> TransportResult<()> {
-        // MCTP receive is handled by the listener in the main loop
-        // This method is not used in our async architecture
-        Err(TransportError::ReceiveError)
+    fn receive_request(&mut self, _req: &mut MessageBuf<'_>) -> TransportResult<()> {
+        // Stub: do nothing for now
+        Ok(())
     }
 
-    fn send_response(&mut self, _resp: &mut MessageBuf) -> TransportResult<()> {
-        // Response sending is handled directly in the main loop via response_channel
-        // This transport is just a stub to satisfy the SPDM library interface
+    fn send_response(&mut self, _resp: &mut MessageBuf<'_>) -> TransportResult<()> {
+        // Stub: do nothing for now
         Ok(())
     }
 
@@ -66,6 +74,134 @@ impl<'a, T: Listener> SpdmTransport for MctpSpdmTransport<'a, T> {
     fn header_size(&self) -> usize {
         0 // MCTP header is handled by the MCTP layer
     }
+}
+
+/// Create SPDM device capabilities
+fn create_device_capabilities() -> DeviceCapabilities {
+    let mut flags_value = 0u32;
+    flags_value |= 1 << 1;  // cert_cap
+    flags_value |= 1 << 2;  // chal_cap  
+    flags_value |= 2 << 3;  // meas_cap (with signature)
+    flags_value |= 1 << 5;  // meas_fresh_cap
+    flags_value |= 1 << 17; // chunk_cap
+    
+    let flags = CapabilityFlags::new(flags_value);
+    
+    DeviceCapabilities {
+        ct_exponent: 0,
+        flags,
+        data_transfer_size: 1024,
+        max_spdm_msg_size: 4096,
+    }
+}
+
+/// Create local device algorithms
+fn create_local_algorithms() -> LocalDeviceAlgorithms<'static> {
+    // Configure supported algorithms with proper bitfield construction
+    let mut measurement_spec = MeasurementSpecification::default();
+    measurement_spec.set_dmtf_measurement_spec(1);
+    
+    let mut measurement_hash_algo = MeasurementHashAlgo::default();
+    measurement_hash_algo.set_tpm_alg_sha_384(1);
+    
+    let mut base_asym_algo = BaseAsymAlgo::default();
+    base_asym_algo.set_tpm_alg_ecdsa_ecc_nist_p384(1);
+    
+    let mut base_hash_algo = BaseHashAlgo::default();
+    base_hash_algo.set_tpm_alg_sha_384(1);
+    
+    let device_algorithms = DeviceAlgorithms {
+        measurement_spec,
+        other_param_support: OtherParamSupport::default(),
+        measurement_hash_algo,
+        base_asym_algo,
+        base_hash_algo,
+        mel_specification: MelSpecification::default(),
+        dhe_group: DheNamedGroup::default(),
+        aead_cipher_suite: AeadCipherSuite::default(),
+        req_base_asym_algo: ReqBaseAsymAlg::default(),
+        key_schedule: KeySchedule::default(),
+    };
+
+    let algorithm_priority_table = AlgorithmPriorityTable {
+        measurement_specification: None,
+        opaque_data_format: None,
+        base_asym_algo: None,
+        base_hash_algo: None,
+        mel_specification: None,
+        dhe_group: None,
+        aead_cipher_suite: None,
+        req_base_asym_algo: None,
+        key_schedule: None,
+    };
+
+    LocalDeviceAlgorithms {
+        device_algorithms,
+        algorithm_priority_table,
+    }
+}
+
+// Stub platform implementations for no_std Hubris
+use spdm_lib::platform::rng::{SpdmRng, SpdmRngError};
+use spdm_lib::platform::hash::{SpdmHash, SpdmHashAlgoType};
+use spdm_lib::cert_store::{SpdmCertStore, CertificateInfo, KeyUsageMask, CertStoreError};
+use spdm_lib::protocol::algorithms::BaseAsymAlgo;
+use spdm_lib::platform::evidence::{SpdmEvidence, SpdmEvidenceError};
+
+struct Sha384Hash;
+impl Sha384Hash {
+    fn new() -> Self { Self }
+}
+impl SpdmHash for Sha384Hash {
+    // Stub implementations - replace with real hash logic
+    fn hash(&mut self, _data: &[u8]) -> Result<(), ()> { Ok(()) }
+    fn init(&mut self) { }
+    fn update(&mut self, _data: &[u8]) { }
+    fn finalize(&mut self, _out: &mut [u8]) -> Result<(), ()> { Ok(()) }
+    fn reset(&mut self) { }
+    fn algo(&self) -> SpdmHashAlgoType { SpdmHashAlgoType::Sha384 }
+}
+
+struct SystemRng;
+impl SystemRng {
+    fn new() -> Self { Self }
+}
+impl SpdmRng for SystemRng {
+    fn get_random_bytes(&mut self, dest: &mut [u8]) -> Result<(), SpdmRngError> {
+        dest.fill(0); // Stub
+        Ok(())
+    }
+    fn generate_random_number(&mut self, out: &mut [u8]) -> Result<(), SpdmRngError> {
+        out.fill(0); // Stub
+        Ok(())
+    }
+}
+
+struct DemoCertStore;
+impl DemoCertStore {
+    fn new() -> Self { Self }
+}
+impl SpdmCertStore for DemoCertStore {
+    // Stub implementations - replace with real cert store logic
+    fn slot_count(&self) -> u8 { 1 }
+    fn is_provisioned(&self, _slot: u8) -> bool { true }
+    fn cert_chain_len(&mut self, _algo: BaseAsymAlgo, _slot: u8) -> Result<usize, CertStoreError> { Ok(0) }
+    fn get_cert_chain(&mut self, _slot: u8, _algo: BaseAsymAlgo, _offset: usize, _out: &mut [u8]) -> Result<usize, CertStoreError> { Ok(0) }
+    fn root_cert_hash(&mut self, _slot: u8, _algo: BaseAsymAlgo, _out: &mut [u8; 48]) -> Result<(), CertStoreError> { Ok(()) }
+    fn sign_hash(&self, _slot: u8, _hash: &[u8; 48], _out: &mut [u8; 96]) -> Result<(), CertStoreError> { Ok(()) }
+    fn key_pair_id(&self, _slot: u8) -> Option<u8> { Some(0) }
+    fn cert_info(&self, _slot: u8) -> Option<CertificateInfo> { None }
+    fn key_usage_mask(&self, _slot: u8) -> Option<KeyUsageMask> { None }
+}
+
+struct DemoEvidence;
+impl DemoEvidence {
+    fn new() -> Self { Self }
+}
+impl SpdmEvidence for DemoEvidence {
+    // Stub implementations - replace with real evidence logic
+    fn pcr_quote(&self, _pcr_index: &mut [u8], _out: &mut [u8]) -> Result<usize, SpdmEvidenceError> { Ok(0) }
+    fn pcr_quote_size(&self, _pcr_index: bool) -> Result<usize, SpdmEvidenceError> { Ok(0) }
 }
 
 // SPDM uses MCTP Message Type 5 according to DMTF specifications
@@ -103,75 +239,51 @@ fn main() -> ! {
 
     let mut recv_buffer = [0u8; SPDM_BUFFER_SIZE];
 
-    // TODO: Initialize SPDM responder context using spdm-lib
-    // This would involve setting up:
-    // - Certificate chains
-    // - Supported algorithms
-    // - Measurement values
-    // - Crypto providers
+    // Create transport
+    let mut transport = MctpSpdmTransport::new(&mut listener, &mut recv_buffer);
 
-    // TODO: Test the normal flow - requires an external SPDM client
-    // communicating over UART since the MCTP server only handles serial transport.
-    // The external client should send basic requests to verify the responder:
-    // 1. Send GET_VERSION request to test version negotiation
-    // 2. Send GET_CAPABILITIES request to test capability exchange
-    // 3. Verify responses are properly formatted and routed back over UART
-    // This would help validate the MCTP-over-UART transport and SPDM message handling
+    // Create platform implementations
+    let mut hash = Sha384Hash::new();
+    let mut m1_hash = Sha384Hash::new();
+    let mut l1_hash = Sha384Hash::new();
+    let mut rng = SystemRng::new();
+    let mut cert_store = DemoCertStore::new();
+    let evidence = DemoEvidence::new();
 
+    // Create SPDM context
+    let supported_versions = [SpdmVersion::V12, SpdmVersion::V11];
+    let capabilities = create_device_capabilities();
+    let algorithms = create_local_algorithms();
+
+    let mut spdm_context = match SpdmContext::new(
+        &supported_versions,
+        &mut transport,
+        capabilities,
+        algorithms,
+        &mut cert_store,
+        &mut hash,
+        &mut m1_hash,
+        &mut l1_hash,
+        &mut rng,
+        &evidence,
+    ) {
+        Ok(ctx) => ctx,
+        Err(_) => panic!("Failed to create SPDM context"),
+    };
+
+    // Buffer for message processing
+    let mut message_buffer = [0u8; SPDM_BUFFER_SIZE];
+    let mut msg_buf = MessageBuf::new(&mut message_buffer);
+
+    // Process SPDM messages
     loop {
-        // Wait for incoming SPDM request over MCTP
-        match listener.recv(&mut recv_buffer) {
-            Ok((msg_type, _msg_ic, spdm_request, mut response_channel)) => {
-                // Verify this is indeed an SPDM message
-                if msg_type != SPDM_MSG_TYPE {
-                    // Log warning and continue - shouldn't happen with proper listener setup
-                    continue;
-                }
-
-                // Process SPDM request using spdm-lib
-                let spdm_response = process_spdm_request(spdm_request);
-
-                // Send SPDM response back via MCTP
-                if let Err(_e) = response_channel.send(&spdm_response) {
-                    // Log error - response send failed
-                    // In a production system, might want to retry or handle differently
-                }
+        match spdm_context.process_message(&mut msg_buf) {
+            Ok(()) => {
+                // Message processed successfully
             }
-            Err(_e) => {
-                // Handle receive error
-                // In a production system, might want to implement exponential backoff
-                // or other error recovery strategies
+            Err(_) => {
+                // Handle error, perhaps continue
             }
         }
     }
-}
-
-/// Process an incoming SPDM request and generate appropriate response
-///
-/// This function will use spdm-lib to:
-/// 1. Parse the incoming SPDM request
-/// 2. Validate the request according to SPDM protocol state
-/// 3. Generate the appropriate SPDM response
-/// 4. Return the serialized response bytes
-fn process_spdm_request(_request: &[u8]) -> heapless::Vec<u8, SPDM_BUFFER_SIZE> {
-    // TODO: Implement actual SPDM processing using spdm-lib
-    // This is a placeholder implementation
-
-    // For now, return a minimal SPDM error response
-    // In a real implementation, this would:
-    // 1. Use spdm_lib::Responder to process the request
-    // 2. Handle various SPDM commands (GET_VERSION, GET_CAPABILITIES, etc.)
-    // 3. Maintain session state
-    // 4. Perform crypto operations
-
-    let mut response = heapless::Vec::new();
-
-    // Placeholder: Return SPDM ERROR response (0x7F)
-    // Real implementation would parse request and generate proper response
-    response.push(0x10).ok(); // SPDM version 1.0
-    response.push(0x7F).ok(); // ERROR response code
-    response.push(0x01).ok(); // Error code: INVALID_REQUEST
-    response.push(0x00).ok(); // Error data
-
-    response
 }
