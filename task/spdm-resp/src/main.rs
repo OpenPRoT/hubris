@@ -57,14 +57,34 @@ impl<'a, T: Listener> SpdmTransport for MctpSpdmTransport<'a, T> {
         Err(TransportError::ResponseNotExpected)
     }
 
-    fn receive_request(&mut self, _req: &mut MessageBuf<'_>) -> TransportResult<()> {
-        // Stub: do nothing for now
+    fn receive_request(&mut self, req: &mut MessageBuf<'_>) -> TransportResult<()> {
+        // Receive the next MCTP message
+        let (_src_eid, _msg_type, msg, resp_channel) = self.listener.recv(self.buffer)
+            .map_err(|_| TransportError::ReceiveError)?;
+
+        // Store the response channel for sending responses
+        self.response_channel = Some(resp_channel);
+
+        // Copy the received message into the MessageBuf
+        req.clear();
+        let leftover = req.extend_from_slice(msg);
+        if !leftover.is_empty() {
+            // Message was too large for the buffer
+            return Err(TransportError::ReceiveError);
+        }
+
         Ok(())
     }
 
-    fn send_response(&mut self, _resp: &mut MessageBuf<'_>) -> TransportResult<()> {
-        // Stub: do nothing for now
-        Ok(())
+    fn send_response(&mut self, resp: &mut MessageBuf<'_>) -> TransportResult<()> {
+        // Send response using the stored response channel
+        if let Some(ref mut resp_channel) = self.response_channel {
+            resp_channel.send(resp.as_slice())
+                .map_err(|_| TransportError::SendError)?;
+            Ok(())
+        } else {
+            Err(TransportError::SendError)
+        }
     }
 
     fn max_message_size(&self) -> TransportResult<usize> {
