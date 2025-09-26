@@ -16,6 +16,9 @@ heapless = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
+# Global allocator for no_std environment
+linked_list_allocator = "0.10"
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]

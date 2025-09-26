@@ -10,10 +10,61 @@
 
 #![no_std]
 #![no_main]
+
+extern crate alloc;
+use linked_list_allocator::LockedHeap;
+
+#[global_allocator]
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
 use mctp::RespChannel;
 use mctp::{Eid, Listener, MsgType};
 use mctp_api::Stack;
 use userlib::*;
+use spdm_lib::platform::transport::{SpdmTransport, TransportResult, TransportError};
+use spdm_lib::codec::MessageBuf;
+
+/// MCTP-based SPDM Transport implementation
+/// This is a minimal stub since our architecture handles transport through the MCTP listener
+pub struct MctpSpdmTransport;
+
+impl MctpSpdmTransport {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl SpdmTransport for MctpSpdmTransport {
+    fn send_request(&mut self, _dest_eid: u8, _req: &mut MessageBuf) -> TransportResult<()> {
+        // For a responder, we don't typically send requests
+        Err(TransportError::ResponseNotExpected)
+    }
+
+    fn receive_response(&mut self, _rsp: &mut MessageBuf) -> TransportResult<()> {
+        // For a responder, we don't typically receive responses
+        Err(TransportError::ResponseNotExpected)
+    }
+
+    fn receive_request(&mut self, _req: &mut MessageBuf) -> TransportResult<()> {
+        // MCTP receive is handled by the listener in the main loop
+        // This method is not used in our async architecture
+        Err(TransportError::ReceiveError)
+    }
+
+    fn send_response(&mut self, _resp: &mut MessageBuf) -> TransportResult<()> {
+        // Response sending is handled directly in the main loop via response_channel
+        // This transport is just a stub to satisfy the SPDM library interface
+        Ok(())
+    }
+
+    fn max_message_size(&self) -> TransportResult<usize> {
+        Ok(SPDM_BUFFER_SIZE)
+    }
+
+    fn header_size(&self) -> usize {
+        0 // MCTP header is handled by the MCTP layer
+    }
+}
 
 // SPDM uses MCTP Message Type 5 according to DMTF specifications
 const SPDM_MSG_TYPE: MsgType = MsgType(5);
@@ -28,6 +79,11 @@ task_slot!(MCTP, mctp_server);
 
 #[export_name = "main"]
 fn main() -> ! {
+    // Initialize the heap allocator
+    const HEAP_SIZE: usize = 8192; // 8KB heap
+    static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+    unsafe { ALLOCATOR.lock().init(HEAP.as_mut_ptr(), HEAP_SIZE) };
+
     // Connect to MCTP server task
     let mctp_stack = Stack::from(MCTP.get_task_id());
 
