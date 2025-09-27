@@ -9,15 +9,13 @@ mctp-api = { path = "../mctp-api" }
 mctp = { workspace = true }
 
 # SPDM library from external repository
-spdm-lib = { git = "https://github.com/rusty1968/spdm-lib.git", branch = "antrocha/responder-app-crypto", package = "spdm-lib" }
+spdm-lib = { git = "https://github.com/rusty1968/spdm-lib.git", branch = "antrocha/responder-app-crypto", package = "spdm-lib", default-features = false, features = [] }
 
 # Additional dependencies that might be needed
 heapless = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
-# Global allocator for no_std environment
-linked_list_allocator = "0.10"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

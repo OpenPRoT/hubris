@@ -3730,15 +3730,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
-name = "linked_list_allocator"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9afa463f5405ee81cdb9cc2baf37e08ec7e4c8209442b5d72c04cfb2cd6e6286"
-dependencies = [
- "spinning_top",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5237,7 +5228,7 @@ dependencies = [
 [[package]]
 name = "spdm-lib"
 version = "0.1.0"
-source = "git+https://github.com/rusty1968/spdm-lib.git?branch=antrocha%2Fresponder-app-crypto#80b682d3e69b309286ed5638636925973b4d5f8d"
+source = "git+https://github.com/rusty1968/spdm-lib.git?branch=antrocha%2Fresponder-app-crypto#ee5b9b50f9b3c351a1c1a9d0192ecbf86c01f2fe"
 dependencies = [
  "bitfield 0.14.0",
  "zerocopy 0.8.27",
@@ -5248,7 +5239,6 @@ name = "spdm-resp"
 version = "0.1.0"
 dependencies = [
  "heapless 0.7.17",
- "linked_list_allocator",
  "mctp",
  "mctp-api",
  "spdm-lib",
@@ -5268,15 +5258,6 @@ name = "spin"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
-dependencies = [
- "lock_api",
-]
-
-[[package]]
-name = "spinning_top"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9eb1a2f4c41445a3a0ff9abc5221c5fcd28e1f13cd7c0397706f9ac938ddb0"
 dependencies = [
  "lock_api",
 ]
