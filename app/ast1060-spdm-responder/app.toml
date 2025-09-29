@@ -37,7 +37,7 @@ interrupts = {"uart.irq" = "uart-irq"}
 [tasks.spdm_responder]
 name = "spdm-resp"
 priority = 3
-max-sizes = {flash = 28032, ram = 32768}
+max-sizes = {flash = 32768, ram = 32768}
 start = true
 stacksize = 24576
 task-slots = ["mctp_server"]

@@ -209,8 +209,8 @@ fn create_local_algorithms() -> LocalDeviceAlgorithms<'static> {
     }
 }
 
-mod platform_stubs;
-use platform_stubs::{DemoCertStore, DemoEvidence, Sha384Hash, SystemRng};
+mod platform;
+use platform::{DemoCertStore, DemoEvidence, DigestHash, SystemRng};
 
 // SPDM uses MCTP Message Type 5 according to DMTF specifications
 const SPDM_MSG_TYPE: MsgType = MsgType(5);
@@ -281,10 +281,15 @@ fn main() -> ! {
     let mut transport =
         MctpSpdmTransport::new(&mctp_stack, listener, &mut recv_buffer);
 
-    // Create platform implementations
-    let mut hash = Sha384Hash::new();
-    let mut m1_hash = Sha384Hash::new();
-    let mut l1_hash = Sha384Hash::new();
+    // Create digest client for hash operations
+    // Single connection to digest server, multiple sessions via session IDs
+    // TODO: Configure actual digest task ID from app.toml
+    let digest_client = drv_digest_api::Digest::from(userlib::TaskId::KERNEL);
+
+    // Create platform implementations - they share the same client but use different sessions
+    let mut hash = DigestHash::new(digest_client.clone());
+    let mut m1_hash = DigestHash::new(digest_client.clone());
+    let mut l1_hash = DigestHash::new(digest_client);
     let mut rng = SystemRng::new();
     let mut cert_store = DemoCertStore::new();
     let evidence = DemoEvidence::new();
