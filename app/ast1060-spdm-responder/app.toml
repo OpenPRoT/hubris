@@ -39,7 +39,14 @@ name = "spdm-resp"
 priority = 3
 max-sizes = {flash = 32768, ram = 32768}
 start = true
-stacksize = 24576
-task-slots = ["mctp_server"]
+stacksize = 20480
+task-slots = ["mctp_server", "digest_server"]
 
-
+[tasks.digest_server]
+name = "digest-server"
+priority = 2
+max-sizes = {flash = 12288, ram = 8192}
+start = true
+stacksize = 2048
+features = ["aspeed-hace"]
+uses = ["hace_controller", "scu"]

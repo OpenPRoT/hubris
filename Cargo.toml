@@ -165,7 +165,13 @@ tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
-mctp = { git = "https://github.com/OpenPRoT/mctp-rs.git", branch = "sync-features", default-features = false }
+mctp = { git = "https://github.com/9elements/mctp-rs.git", branch = "main", default-features = false }
+embedded-hal-1 = { package = "embedded-hal", version = "1.0", default-features = false }
+
+## OpenPRot Initiative
+openprot-hal-blocking = { git = "https://github.com/OpenPRoT/openprot.git"  }
+openprot-platform-mock = { git = "https://github.com/OpenPRoT/openprot.git" }
+proposed-traits = { git = "https://github.com/rusty1968/proposed_traits.git", package = "proposed-traits", rev = "85641310df5a5276c67f81621b104322cff0286c" }
 
 [workspace.lints.rust]
 elided_lifetimes_in_paths = "warn"

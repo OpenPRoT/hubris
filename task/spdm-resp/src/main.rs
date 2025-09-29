@@ -283,8 +283,8 @@ fn main() -> ! {
 
     // Create digest client for hash operations
     // Single connection to digest server, multiple sessions via session IDs
-    // TODO: Configure actual digest task ID from app.toml
-    let digest_client = drv_digest_api::Digest::from(userlib::TaskId::KERNEL);
+    task_slot!(DIGEST_SERVER, digest_server);
+    let digest_client = drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
 
     // Create platform implementations - they share the same client but use different sessions
     let mut hash = DigestHash::new(digest_client.clone());

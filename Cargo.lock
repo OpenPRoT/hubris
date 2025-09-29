@@ -1065,6 +1065,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "digest-server"
+version = "0.1.0"
+dependencies = [
+ "aspeed-ddk",
+ "ast1060-pac",
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-digest-api",
+ "embedded-hal 1.0.0",
+ "heapless 0.7.17",
+ "idol",
+ "idol-runtime",
+ "num-derive 0.4.2",
+ "num-traits",
+ "openprot-hal-blocking",
+ "openprot-platform-mock",
+ "proposed-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
@@ -3966,6 +3990,11 @@ checksum = "d8280034c4afaa377d825c17261987ff26a638369ea4b46919e1726741eec253"
 [[package]]
 name = "mctp"
 version = "0.2.0"
+source = "git+https://github.com/9elements/mctp-rs.git?branch=main#38017b1dc25ec740133ded0169e94bee63a13957"
+
+[[package]]
+name = "mctp"
+version = "0.2.0"
 source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#38017b1dc25ec740133ded0169e94bee63a13957"
 
 [[package]]
@@ -3978,7 +4007,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
  "num-traits",
  "serde",
  "userlib",
@@ -3999,7 +4028,7 @@ dependencies = [
 name = "mctp-echo"
 version = "0.1.0"
 dependencies = [
- "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
  "mctp-api",
  "userlib",
 ]
@@ -4043,7 +4072,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
  "mctp-api",
  "mctp-baremetal",
  "nb 1.1.0",
@@ -4341,13 +4370,23 @@ checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 [[package]]
 name = "openprot-hal-blocking"
 version = "0.1.0"
-source = "git+https://github.com/OpenPRoT/openprot#6d696159f9a39a412bc84c050dc5fc03d729bc50"
+source = "git+https://github.com/OpenPRoT/openprot.git#1b0b17fc0b3d5cf26cd6b363e9abeaefc354cd71"
 dependencies = [
  "embedded-hal 1.0.0",
  "rand_core 0.9.3",
  "subtle",
  "zerocopy 0.8.27",
  "zeroize",
+]
+
+[[package]]
+name = "openprot-platform-mock"
+version = "0.1.0"
+source = "git+https://github.com/OpenPRoT/openprot.git#1b0b17fc0b3d5cf26cd6b363e9abeaefc354cd71"
+dependencies = [
+ "cortex-m",
+ "embedded-hal 1.0.0",
+ "openprot-hal-blocking",
 ]
 
 [[package]]
@@ -5271,7 +5310,7 @@ version = "0.1.0"
 dependencies = [
  "drv-digest-api",
  "heapless 0.7.17",
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
  "mctp-api",
  "spdm-lib",
  "userlib",

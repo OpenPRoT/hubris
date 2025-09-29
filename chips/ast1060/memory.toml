@@ -7,7 +7,7 @@ execute = true
 
 [[ram]]
 address = 0x30000
-size = 65536
+size = 131072
 read = true
 write = true
 execute = true
