@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 mctp-api = { path = "../mctp-api" }
+drv-digest-api = { path = "../../drv/openprot-digest-api" }
+
 mctp = { workspace = true }
 
 # SPDM library from external repository
