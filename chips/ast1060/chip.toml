@@ -8,3 +8,8 @@ size = 0x400
 address = 0x7e784000
 size = 0x1000
 interrupts = { irq = 8 }
+
+[scu]
+address = 0x7e6e2000
+size = 0x1000
+
