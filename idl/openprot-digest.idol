@@ -1,0 +1,182 @@
+// Digest IPC API
+
+Interface(
+    name: "Digest",
+    ops: {
+        "init_sha256": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "init_sha384": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "init_sha512": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "init_sha3_256": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "init_sha3_384": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "init_sha3_512": (
+            args: {},
+            reply: Result(
+                ok: "u32", // Returns session ID for the digest context
+                err: CLike("DigestError"),
+            ),
+        ),
+        "update": (
+            args: {
+                "session_id": "u32",
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha256": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha384": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 12]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha512": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 16]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha3_256": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha3_384": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 12]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "finalize_sha3_512": (
+            args: {
+                "session_id": "u32",
+            },
+            leases: {
+                "digest_out": (type: "[u32; 16]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "reset": (
+            args: {
+                "session_id": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "digest_oneshot_sha256": (
+            args: {
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+                "digest_out": (type: "[u32; 8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "digest_oneshot_sha384": (
+            args: {
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+                "digest_out": (type: "[u32; 12]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+        "digest_oneshot_sha512": (
+            args: {
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+                "digest_out": (type: "[u32; 16]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DigestError"),
+            ),
+        ),
+    },
+)
