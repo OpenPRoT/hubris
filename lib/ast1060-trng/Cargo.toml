@@ -1,0 +1,15 @@
+[package]
+name = "lib-ast1060-trng"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand_core = "0.6"
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
