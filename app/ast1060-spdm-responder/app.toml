@@ -40,7 +40,7 @@ priority = 3
 max-sizes = {flash = 32768, ram = 32768}
 start = true
 stacksize = 20480
-task-slots = ["mctp_server", "digest_server"]
+task-slots = ["mctp_server", "digest_server", "rng_driver"]
 
 [tasks.digest_server]
 name = "digest-server"
@@ -50,3 +50,11 @@ start = true
 stacksize = 2048
 features = ["aspeed-hace"]
 uses = ["hace_controller", "scu"]
+
+[tasks.rng_driver]
+name = "drv-ast1060-trng"
+priority = 2
+max-sizes = {flash = 8192, ram = 4096}
+start = true
+stacksize = 2048
+uses = ["trng"]

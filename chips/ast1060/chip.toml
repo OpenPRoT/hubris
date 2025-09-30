@@ -13,3 +13,7 @@ interrupts = { irq = 8 }
 address = 0x7e6e2000
 size = 0x1000
 
+[trng]
+address = 0x7e6ed000
+size = 0x8
+

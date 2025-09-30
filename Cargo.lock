@@ -1089,6 +1089,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ast1060-trng"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "drv-rng-api",
+ "idol",
+ "idol-runtime",
+ "lib-ast1060-trng",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
@@ -3708,6 +3724,13 @@ name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
+name = "lib-ast1060-trng"
+version = "0.1.0"
+dependencies = [
+ "rand_core 0.6.4",
+]
 
 [[package]]
 name = "lib-ast1060-uart"
