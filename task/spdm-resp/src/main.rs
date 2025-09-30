@@ -286,11 +286,15 @@ fn main() -> ! {
     task_slot!(DIGEST_SERVER, digest_server);
     let digest_client = drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
 
+    // Create RNG client for random number generation
+    task_slot!(RNG_DRIVER, rng_driver);
+    let rng_client = drv_rng_api::Rng::from(RNG_DRIVER.get_task_id());
+
     // Create platform implementations - they share the same client but use different sessions
     let mut hash = DigestHash::new(digest_client.clone());
     let mut m1_hash = DigestHash::new(digest_client.clone());
     let mut l1_hash = DigestHash::new(digest_client);
-    let mut rng = SystemRng::new();
+    let mut rng = SystemRng::new(rng_client);
     let mut cert_store = DemoCertStore::new();
     let evidence = DemoEvidence::new();
 
