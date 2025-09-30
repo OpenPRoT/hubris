@@ -121,15 +121,15 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
     pub fn send(
         &mut self,
         msg: &RecvMessage,
-        handle: GenericHandle,
+        handle: Option<GenericHandle>,
         typ: u8,
         eid: Option<u8>,
         tag: Option<u8>,
         ic: bool,
         buf: Leased<R, [u8]>,
     ) {
-        // The Router currently supports blocking send only, so this should be quite easy.
         // TODO figure out if handling incoming packets while sending is neccessary.
+        //      Having dedicated driver tasks with buffering for every transport would simplify this.
 
         let mut msg_buf = [0; MAX_PAYLOAD];
         if msg_buf.len() < buf.len() {
@@ -143,7 +143,7 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
             MsgType(typ),
             tag.map(|x| Tag::Owned(TagValue(x))),
             MsgIC(ic),
-            AppCookie(handle.0 as usize),
+            AppCookie(handle.unwrap_or(GenericHandle(255)).0 as usize), // Responses need no handle, use 255 as dummy
             &msg_buf,
         );
 
@@ -210,6 +210,14 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
             timeout_millis,
             super::notifications::TIMER_MASK,
         );
+    }
+
+    /// Unbind a handle previously allocated by `req` or `listener`
+    pub fn unbind(&mut self, msg: &RecvMessage, handle: GenericHandle) {
+        let cookie = AppCookie(handle.0 as usize);
+        let _ = self.stack.unbind(cookie);
+        self.outstanding.remove(&handle); // should never contain the handle at this point, but just in case...
+        sys_reply(msg.sender, 0, &[]);
     }
 }
 

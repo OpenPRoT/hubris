@@ -56,7 +56,7 @@ Interface(
         "send": (
             doc: "Send a single message, either as a request or response, returning the message tag",
             args: {
-                "handle": "GenericHandle",
+                "handle": "Option<GenericHandle>",
                 "typ": "u8",
                 "eid": "Option<u8>",
                 "tag": "Option<u8>",
@@ -70,6 +70,14 @@ Interface(
                 err: CLike("ServerError"),
             ),
             encoding: Hubpack,
+        ),
+        "drop": (
+            doc: "Drop a handle",
+            args: {
+                "handle": "GenericHandle",
+            },
+            reply: Simple("()"),
+            idempotent: true,
         ),
     },
 )

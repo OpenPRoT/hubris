@@ -135,6 +135,12 @@ fn handle_mctp_msg<S: mctp_stack::Sender, const OUTSTANDING: usize>(
                 lease,
             );
         }
+        ipc::MCTPOperation::drop => {
+            let handle = ipc::MCTP_drop_ARGS::ref_from_bytes(msg_buf)
+                .unwrap_lite()
+                .handle;
+            server.unbind(&recv_msg, handle);
+        }
     }
 }
 

@@ -125,13 +125,22 @@ impl ReqChannel for MctpReqChannel<'_> {
         if self.sent_tag.is_some() {
             return Err(Error::BadArgument);
         }
-        let tv =
-            self.stack
-                .ipc
-                .send(self.handle, typ.0, None, None, false, buf)?;
+        let tv = self.stack.ipc.send(
+            Some(self.handle),
+            typ.0,
+            None,
+            None,
+            false,
+            buf,
+        )?;
         let tag = Tag::Owned(mctp::TagValue(tv));
         self.sent_tag = Some(tag);
         Ok(())
+    }
+}
+impl Drop for MctpReqChannel<'_> {
+    fn drop(&mut self) {
+        self.stack.ipc.drop(self.handle);
     }
 }
 
@@ -145,9 +154,9 @@ pub struct MctpListener<'r> {
     /// 0 means no timeout.
     timeout: u32,
 }
-impl Listener for MctpListener<'_> {
+impl<'b> Listener for MctpListener<'b> {
     type RespChannel<'a>
-        = MctpRespChannel<'a>
+        = MctpRespChannel<'b>
     where
         Self: 'a;
 
@@ -170,7 +179,6 @@ impl Listener for MctpListener<'_> {
 
         let resp_channel = MctpRespChannel {
             stack: self.stack,
-            handle: self.handle.clone(),
             eid: Eid(remote_eid),
             typ: MsgType(msg_typ),
             tv: TagValue(msg_tag),
@@ -184,12 +192,16 @@ impl Listener for MctpListener<'_> {
         ))
     }
 }
+impl Drop for MctpListener<'_> {
+    fn drop(&mut self) {
+        self.stack.ipc.drop(self.handle);
+    }
+}
 
 /// A response channel for an incoming MCTP message
 #[derive(Debug)]
 pub struct MctpRespChannel<'r> {
     stack: &'r Stack,
-    handle: ipc::GenericHandle,
     eid: Eid,
     typ: MsgType,
     tv: TagValue,
@@ -223,7 +235,7 @@ impl<'r> RespChannel for MctpRespChannel<'r> {
             .stack
             .ipc
             .send(
-                self.handle,
+                None,
                 self.typ.0,
                 Some(self.eid.0),
                 Some(self.tv.0),
@@ -306,6 +318,7 @@ pub mod ipc {
         zerocopy_derive::Immutable,
         zerocopy_derive::IntoBytes,
         zerocopy_derive::FromBytes,
+        zerocopy_derive::KnownLayout,
         Serialize,
         Deserialize,
         SerializedSize,
