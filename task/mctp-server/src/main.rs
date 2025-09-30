@@ -30,7 +30,7 @@ fn main() -> ! {
     let mut msg_buf = [0; ipc::INCOMING_SIZE];
     let peripherals = unsafe { device::Peripherals::steal() };
 
-    let mut usart = RefCell::new(Usart::from(peripherals.uart.deref()));
+    let usart = RefCell::new(Usart::from(peripherals.uart.deref()));
     let serial_sender = serial::SerialSender::new(&usart);
     let mut serial_reader = mctp_stack::serial::MctpSerialHandler::new();
 

@@ -8,12 +8,10 @@ use super::notifications;
 
 // use cortex_m_rt::entry;
 
-#[cfg(feature = "jtag-halt")]
-use core::ptr::{self, addr_of};
+// #[cfg(feature = "jtag-halt")]
+// use core::ptr::{self, addr_of};
 
-use ast1060_pac as device;
-use core::ops::Deref;
-use lib_ast1060_uart::{InterruptDecoding, Read, Usart, Write};
+use lib_ast1060_uart::{InterruptDecoding, Usart};
 
 pub struct SerialSender<'a> {
     pub usart: &'a RefCell<Usart<'a>>,
@@ -32,10 +30,9 @@ impl<'a> mctp_stack::Sender for SerialSender<'a> {
 
             match r {
                 mctp_stack::fragment::SendOutput::Packet(p) => {
-                    self.serial_handler.send_sync(
-                        payload,
-                        &mut self.usart.borrow_mut().deref_mut(),
-                    );
+                    self.serial_handler
+                        .send_sync(p, &mut self.usart.borrow_mut().deref_mut())
+                        .unwrap_lite();
                 }
                 mctp_stack::fragment::SendOutput::Complete { tag, .. } => {
                     break Ok(tag)
@@ -80,11 +77,6 @@ impl<'a> SerialSender<'a> {
     }
 }
 
-pub enum UartError {
-    RxNoData,
-    RxTimeout,
-}
-
 pub fn handle_recv<'a>(
     interrupt: InterruptDecoding,
     usart: &RefCell<Usart<'_>>,
@@ -100,21 +92,21 @@ pub fn handle_recv<'a>(
     }
 }
 
-#[cfg(feature = "jtag-halt")]
-fn jtag_halt() {
-    static mut HALT: u32 = 1;
+// #[cfg(feature = "jtag-halt")]
+// fn jtag_halt() {
+//     static mut HALT: u32 = 1;
 
-    // This is a hack to halt the CPU in JTAG mode.
-    // It writes a value to a volatile memory location
-    // Break by jtag and set val to zero to continue.
-    loop {
-        let val;
-        unsafe {
-            val = ptr::read_volatile(addr_of!(HALT));
-        }
+//     // This is a hack to halt the CPU in JTAG mode.
+//     // It writes a value to a volatile memory location
+//     // Break by jtag and set val to zero to continue.
+//     loop {
+//         let val;
+//         unsafe {
+//             val = ptr::read_volatile(addr_of!(HALT));
+//         }
 
-        if val == 0 {
-            break;
-        }
-    }
-}
+//         if val == 0 {
+//             break;
+//         }
+//     }
+// }
