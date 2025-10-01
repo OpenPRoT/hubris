@@ -5,7 +5,7 @@ chip = "../../chips/ast1060"
 stacksize = 1024 
 
 [kernel]
-name = "ast1060-starter"
+name = "ast1060-mctp-echo"
 requires = {flash = 20000, ram = 3072}
 
 [tasks.jefe]
@@ -40,4 +40,5 @@ start = true
 stacksize = 12288
 notifications = ["uart-irq", "timer"]
 interrupts = {"uart.irq" = "uart-irq"}
+uses = ["uart"]
 

@@ -51,6 +51,7 @@ fn main() -> ! {
                 serial::handle_recv(interrupt, &usart, &mut serial_reader)
                     .unwrap_lite();
             server.stack.inbound(pkt).unwrap_lite();
+            sys_irq_control(notifications::UART_IRQ_MASK, true);
             continue;
         }
 
