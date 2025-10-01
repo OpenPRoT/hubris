@@ -1,0 +1,26 @@
+Interface(
+    name: "Crypto",
+    ops: {
+        "sign_ecdsa": {
+            args: {
+                "key_slot": "u8",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(48)),
+            },
+            reply: Result(
+                ok: "[u8; crate::ECDSA_SIG_SZ]",
+                err: CLike(")
+            ),
+        },
+        "verify_ecdsa": {
+            args: {
+                "key_slot": "u8",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(96))
+                )
+            },
+        }
+    },
+)

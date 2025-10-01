@@ -1242,6 +1242,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-crypto-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-digest-api"
 version = "0.1.0"
 dependencies = [
@@ -5310,6 +5324,7 @@ name = "spdm-resp"
 version = "0.1.0"
 dependencies = [
  "drv-digest-api",
+ "drv-rng-api",
  "heapless 0.7.17",
  "mctp",
  "mctp-api",
