@@ -24,7 +24,6 @@ pub const MAX_LISTENERS: usize = 8;
 /// Maximum number of concurrent outstanding receive calls.
 pub const MAX_OUTSTANDING: usize = 16;
 
-// TODO: add IRQ recv loop
 #[export_name = "main"]
 fn main() -> ! {
     let mut msg_buf = [0; ipc::INCOMING_SIZE];

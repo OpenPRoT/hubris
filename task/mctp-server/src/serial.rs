@@ -1,5 +1,6 @@
 // mctp-baremetal
 use core::{cell::RefCell, ops::DerefMut};
+use embedded_io::Write;
 use mctp::Result;
 use mctp_stack;
 use userlib::*;
@@ -33,6 +34,7 @@ impl<'a> mctp_stack::Sender for SerialSender<'a> {
                     self.serial_handler
                         .send_sync(p, &mut self.usart.borrow_mut().deref_mut())
                         .unwrap_lite();
+                    self.usart.borrow_mut().flush().unwrap_lite();
                 }
                 mctp_stack::fragment::SendOutput::Complete { tag, .. } => {
                     break Ok(tag)

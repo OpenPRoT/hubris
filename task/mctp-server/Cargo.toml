@@ -21,6 +21,7 @@ mctp = { workspace = true }
 lib-ast1060-uart = { path = "../../lib/ast1060-uart" }
 nb = {workspace = true}
 heapless = { workspace = true }
+embedded-io = { workspace = true }
 
 [build-dependencies]
 idol = { workspace = true }

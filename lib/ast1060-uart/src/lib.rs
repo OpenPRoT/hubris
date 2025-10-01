@@ -85,7 +85,7 @@ impl Write for Usart<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         let mut counter = 0;
         for byte in buf {
-            if self.is_tx_full() {
+            if !self.is_tx_full() {
                 // This is unsafe because we can transmit 7, 8 or 9 bits but the
                 // interface can't know what it's been configured for.
                 self.usart
