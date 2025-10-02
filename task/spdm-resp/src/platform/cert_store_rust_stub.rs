@@ -4,16 +4,20 @@ use spdm_lib::cert_store::{CertStoreError, SpdmCertStore};
 use spdm_lib::protocol::certs::{CertificateInfo, KeyUsageMask};
 use spdm_lib::protocol::AsymAlgo;
 
-pub struct DemoCertStore;
+pub struct DemoCertStore {
+    // Pure stub - no fields needed
+}
 
 impl DemoCertStore {
     pub fn new() -> Self {
-        Self
+        Self {
+            // Pure stub implementation
+        }
     }
 }
 
 impl SpdmCertStore for DemoCertStore {
-    // Stub implementations - replace with real cert store logic
+    // Stub implementations - all methods return minimal stub values
     fn slot_count(&self) -> u8 {
         1
     }
@@ -53,8 +57,10 @@ impl SpdmCertStore for DemoCertStore {
         &self,
         _slot: u8,
         _hash: &[u8; 48],
-        _out: &mut [u8; 96],
+        out: &mut [u8; 96],
     ) -> Result<(), CertStoreError> {
+        // Pure stub implementation - fill output with zeros
+        out.fill(0);
         Ok(())
     }
 

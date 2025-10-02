@@ -18,15 +18,20 @@ embedded-tls = { version = "0.17", default-features = false }
 # Pure Rust crypto for embedded environments (optional)
 sha2 = { version = "0.10", default-features = false, optional = true }
 
+# ECDSA signing for certificate store
+ecdsa = { version = "0.16", default-features = false, optional = true }
+p384 = { version = "0.13", default-features = false, features = ["ecdsa"], optional = true }
+
 # Additional dependencies that might be needed
 heapless = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
 [features]
-default = ["sha2-crypto"]
+default = ["sha2-crypto", "ecdsa-rust-crypto"]
 # Crypto implementation features
 sha2-crypto = ["dep:sha2"]
+ecdsa-rust-crypto = ["dep:ecdsa", "dep:p384"]
 # IPC-only mode (no additional crypto dependencies)
 ipc-only = []
 
