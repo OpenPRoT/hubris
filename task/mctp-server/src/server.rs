@@ -116,7 +116,8 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
     ///
     /// Blocks until the message is sent or an error occurs.
     /// When responding to a request received by a listener, `eid` and `tag` have to be set.
-    /// A request usually won't set a `eid`.
+    /// A request never sets an `eid`.
+    /// We distinguish request and response by the `handle` parameter: if it is `None`, it is a response.
     /// When no `tag` is supplied for a request, a new one will be allocated.
     pub fn send(
         &mut self,
@@ -138,10 +139,19 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
         if buf.read_range(0..buf.len(), &mut msg_buf).is_err() {
             todo!("client died?");
         }
+        let msg_buf = &msg_buf[..buf.len()];
+        let tag = if handle.is_none() {
+            // All calls without a handle are responses and must use unowned tags
+            // TODO erroring out if no tag is provided?
+            tag.map(|x| Tag::Unowned(TagValue(x)))
+        } else {
+            // A call with a handle is a request and must use owned tags (or allocate a new one)
+            tag.map(|x| Tag::Owned(TagValue(x)))
+        };
         let res = self.stack.send(
             eid.map(|id| Eid(id)),
             MsgType(typ),
-            tag.map(|x| Tag::Owned(TagValue(x))),
+            tag,
             MsgIC(ic),
             AppCookie(handle.unwrap_or(GenericHandle(255)).0 as usize), // Responses need no handle, use 255 as dummy
             &msg_buf,
@@ -182,7 +192,7 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
                 let _ = marked.push(*handle);
             }
 
-            if now_millis >= *deadline {
+            if *deadline != 0 && now_millis >= *deadline {
                 sys_reply(msg_handle.sender, ServerError::TimedOut.into(), &[]);
                 let _ = marked.push(*handle);
             }

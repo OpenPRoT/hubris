@@ -16,6 +16,7 @@ pub enum Error {
     BufFull,
 }
 
+#[derive(Debug)]
 pub enum InterruptDecoding {
     ModemStatusChange = 0,
     TxEmpty = 1,
@@ -57,12 +58,10 @@ impl<'a> From<&'a device::uart::RegisterBlock> for Usart<'a> {
             });
         }
 
-        // Self { usart }.set_rate(Rate::MBaud1_5).set_8n1().interrupt_enable()
         Self { usart }
             .set_rate(Rate::MBaud1_5)
             .set_8n1()
             .interrupt_enable()
-        // Self { usart }.interrupt_enable()
     }
 }
 
@@ -83,26 +82,32 @@ impl Write for Usart<'_> {
     }
 
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        let mut counter = 0;
-        for byte in buf {
+        for (n, byte) in buf.iter().enumerate() {
             if !self.is_tx_full() {
                 // This is unsafe because we can transmit 7, 8 or 9 bits but the
                 // interface can't know what it's been configured for.
                 self.usart
                     .uartthr()
                     .write(|w| unsafe { w.bits(*byte as u32) });
-                counter += 1;
             } else {
-                self.flush()?;
+                if n == 0 {
+                    // spec demands to block until atleast one byte has been written
+                    continue;
+                }
+                return Ok(n);
             }
         }
-        Ok(counter)
+        Ok(buf.len())
     }
 }
 
 impl Read for Usart<'_> {
     fn read(&mut self, out: &mut [u8]) -> Result<usize, Self::Error> {
+        if out.is_empty() {
+            return Ok(0);
+        }
         let mut count = 0;
+        while self.is_rx_empty() {} // Wait until atleast one byte is available
         while !self.is_rx_empty() {
             let byte = self.usart.uartrbr().read().bits() as u8;
             if self.is_rx_frame_err() {
@@ -112,10 +117,10 @@ impl Read for Usart<'_> {
             } else if self.is_rx_noise_err() {
                 return Err(Error::Noise);
             }
-
             out[count] = byte;
+
             count += 1;
-            if count == out.len() - 1 {
+            if count >= out.len() {
                 break;
             }
         }
@@ -160,9 +165,9 @@ impl<'a> Usart<'a> {
     pub fn interrupt_enable(self) -> Self {
         self.usart.uartier().write(|w| {
             w.erbfi().set_bit(); // Enable Received Data Available Interrupt
-                                 // w.etbei().set_bit(); // Enable Transmitter Holding Register Empty Interrupt
-                                 // w.elsi().set_bit(); // Enable Receiver Line Status Interrupt
-                                 // w.edssi().set_bit() // Enable Modem Status Interrupt
+            w.etbei().set_bit(); // Enable Transmitter Holding Register Empty Interrupt
+            w.elsi().set_bit(); // Enable Receiver Line Status Interrupt
+            w.edssi().set_bit(); // Enable Modem Status Interrupt
             w
         });
 
@@ -210,9 +215,8 @@ impl<'a> Usart<'a> {
     }
 
     pub fn is_tx_idle(&self) -> bool {
-        // self.usart.uartlsr().read().txter_empty().bit_is_set()
-        // self.usart.uartlsr().read().txter_empty().bit_is_set()
-        self.usart.uartiir().read().intdecoding_table() == 0x01
+        self.usart.uartlsr().read().txter_empty().bit_is_set()
+        // self.usart.uartiir().read().intdecoding_table() == 0x01
     }
 
     pub fn set_tx_idle_interrupt(&self) {

@@ -235,7 +235,7 @@ impl<'r> RespChannel for MctpRespChannel<'r> {
             .stack
             .ipc
             .send(
-                None,
+                None, //no handle, since this is a response (server distinguishes by Some/None)
                 self.typ.0,
                 Some(self.eid.0),
                 Some(self.tv.0),

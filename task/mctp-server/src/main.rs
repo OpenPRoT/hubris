@@ -35,21 +35,28 @@ fn main() -> ! {
 
     let mut server: Server<_, MAX_OUTSTANDING> =
         Server::new(mctp::Eid(42), 0, serial_sender);
+    let state = sys_get_timer();
+    server.update(state.now);
 
     loop {
         let msg = sys_recv_open(
             &mut msg_buf,
-            notifications::UART_IRQ_MASK & notifications::TIMER_MASK,
+            notifications::UART_IRQ_MASK | notifications::TIMER_MASK,
         );
-        let interrupt = usart.borrow_mut().read_interrupt_status();
 
         if msg.sender == TaskId::KERNEL
             && (msg.operation & notifications::UART_IRQ_MASK) != 0
         {
-            let pkt =
-                serial::handle_recv(interrupt, &usart, &mut serial_reader)
-                    .unwrap_lite();
-            server.stack.inbound(pkt).unwrap_lite();
+            let interrupt = usart.borrow_mut().read_interrupt_status();
+            if let Some(pkt) = serial::handle_uart_interrupt(
+                interrupt,
+                &usart,
+                &mut serial_reader,
+            ) {
+                server.stack.inbound(pkt.unwrap_lite()).unwrap_lite();
+                let state = sys_get_timer();
+                server.update(state.now);
+            }
             sys_irq_control(notifications::UART_IRQ_MASK, true);
             continue;
         }
@@ -85,6 +92,8 @@ fn handle_mctp_msg<S: mctp_stack::Sender, const OUTSTANDING: usize>(
         // TODO check which cases and unwraps have to be handled better.
         return;
     };
+
+    let msg_buf = &msg_buf[..recv_msg.message_len];
     match op {
         ipc::MCTPOperation::req => {
             let eid = ipc::MCTP_req_ARGS::ref_from_bytes(msg_buf)

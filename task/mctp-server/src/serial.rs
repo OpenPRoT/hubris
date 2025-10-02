@@ -1,4 +1,3 @@
-// mctp-baremetal
 use core::{cell::RefCell, ops::DerefMut};
 use embedded_io::Write;
 use mctp::Result;
@@ -6,11 +5,6 @@ use mctp_stack;
 use userlib::*;
 
 use super::notifications;
-
-// use cortex_m_rt::entry;
-
-// #[cfg(feature = "jtag-halt")]
-// use core::ptr::{self, addr_of};
 
 use lib_ast1060_uart::{InterruptDecoding, Usart};
 
@@ -54,22 +48,6 @@ impl<'a> mctp_stack::Sender for SerialSender<'a> {
 impl<'a> SerialSender<'a> {
     /// Create a new SerialSender instance with the neccessary serial setup code.
     pub fn new(uart: &'a RefCell<Usart<'a>>) -> Self {
-        // peripherals.scu.scu000().modify(|_, w| w);
-        // peripherals.scu.scu41c().modify(|_, w| {
-        //     // Set the JTAG pinmux to 0x1f << 25
-        //     w.enbl_armtmsfn_pin()
-        //         .bit(true)
-        //         .enbl_armtckfn_pin()
-        //         .bit(true)
-        //         .enbl_armtrstfn_pin()
-        //         .bit(true)
-        //         .enbl_armtdifn_pin()
-        //         .bit(true)
-        //         .enbl_armtdofn_pin()
-        //         .bit(true)
-        // });
-
-        // USART side yet, so this won't trigger notifications yet.
         sys_irq_control(notifications::UART_IRQ_MASK, true);
 
         Self {
@@ -79,36 +57,28 @@ impl<'a> SerialSender<'a> {
     }
 }
 
-pub fn handle_recv<'a>(
+pub fn handle_uart_interrupt<'a>(
     interrupt: InterruptDecoding,
     usart: &RefCell<Usart<'_>>,
     serial_reader: &'a mut mctp_stack::serial::MctpSerialHandler,
-) -> Result<&'a [u8]> {
+) -> Option<Result<&'a [u8]>> {
     let usart = &mut usart.borrow_mut();
     match interrupt {
         InterruptDecoding::RxDataAvailable
         | InterruptDecoding::CharacterTimeout => {
-            serial_reader.recv(&mut usart.deref_mut())
+            usart.clear_rx_data_available_interrupt();
+            let ret = serial_reader.recv(&mut usart.deref_mut());
+            usart.set_rx_data_available_interrupt();
+            return Some(ret);
         }
-        _ => Err(mctp::Error::RxFailure),
+        InterruptDecoding::ModemStatusChange => {
+            usart.read_modem_status();
+        }
+        InterruptDecoding::TxEmpty => usart.clear_tx_idle_interrupt(),
+        InterruptDecoding::LineStatusChange => {
+            usart.read_line_status();
+        }
+        _ => return Some(Err(mctp::Error::RxFailure)),
     }
+    None
 }
-
-// #[cfg(feature = "jtag-halt")]
-// fn jtag_halt() {
-//     static mut HALT: u32 = 1;
-
-//     // This is a hack to halt the CPU in JTAG mode.
-//     // It writes a value to a volatile memory location
-//     // Break by jtag and set val to zero to continue.
-//     loop {
-//         let val;
-//         unsafe {
-//             val = ptr::read_volatile(addr_of!(HALT));
-//         }
-
-//         if val == 0 {
-//             break;
-//         }
-//     }
-// }
