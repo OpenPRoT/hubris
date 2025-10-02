@@ -3935,7 +3935,7 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 [[package]]
 name = "mctp"
 version = "0.2.0"
-source = "git+https://github.com/9elements/mctp-rs.git?branch=main#38017b1dc25ec740133ded0169e94bee63a13957"
+source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#38017b1dc25ec740133ded0169e94bee63a13957"
 
 [[package]]
 name = "mctp-api"
@@ -3958,7 +3958,7 @@ dependencies = [
 [[package]]
 name = "mctp-baremetal"
 version = "0.1.0"
-source = "git+https://github.com/9elements/mctp-lib.git?branch=buildup#02480113fe164ee4790ceee089eb6c8ccec2fd7b"
+source = "git+https://github.com/9elements/mctp-lib.git?branch=buildup#757adfb99f5d93f2c64ca8bdd17723f54b16a25c"
 dependencies = [
  "mctp",
  "mctp-estack",
@@ -3976,7 +3976,7 @@ dependencies = [
 [[package]]
 name = "mctp-estack"
 version = "0.1.0"
-source = "git+https://github.com/9elements/mctp-rs.git?branch=main#38017b1dc25ec740133ded0169e94bee63a13957"
+source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#38017b1dc25ec740133ded0169e94bee63a13957"
 dependencies = [
  "crc",
  "embedded-io",
