@@ -210,7 +210,7 @@ fn create_local_algorithms() -> LocalDeviceAlgorithms<'static> {
 }
 
 mod platform;
-use platform::{DemoCertStore, DemoEvidence, DigestHash, SystemRng};
+use platform::{create_platform_hash, DemoCertStore, DemoEvidence, SystemRng};
 
 // SPDM uses MCTP Message Type 5 according to DMTF specifications
 const SPDM_MSG_TYPE: MsgType = MsgType(5);
@@ -281,19 +281,31 @@ fn main() -> ! {
     let mut transport =
         MctpSpdmTransport::new(&mctp_stack, listener, &mut recv_buffer);
 
-    // Create digest client for hash operations
-    // Single connection to digest server, multiple sessions via session IDs
-    task_slot!(DIGEST_SERVER, digest_server);
-    let digest_client = drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
+    // Create digest client for hash operations (only when IPC is needed)
+    #[cfg(not(feature = "sha2-crypto"))]
+    {
+        task_slot!(DIGEST_SERVER, digest_server);
+        let digest_client = drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
+    }
 
     // Create RNG client for random number generation
     task_slot!(RNG_DRIVER, rng_driver);
     let rng_client = drv_rng_api::Rng::from(RNG_DRIVER.get_task_id());
 
-    // Create platform implementations - they share the same client but use different sessions
-    let mut hash = DigestHash::new(digest_client.clone());
-    let mut m1_hash = DigestHash::new(digest_client.clone());
-    let mut l1_hash = DigestHash::new(digest_client);
+    // Create platform implementations using unified constructor
+    #[cfg(feature = "sha2-crypto")]
+    let mut hash = create_platform_hash();
+    #[cfg(feature = "sha2-crypto")]
+    let mut m1_hash = create_platform_hash();
+    #[cfg(feature = "sha2-crypto")]
+    let mut l1_hash = create_platform_hash();
+    
+    #[cfg(not(feature = "sha2-crypto"))]
+    let mut hash = create_platform_hash(digest_client.clone());
+    #[cfg(not(feature = "sha2-crypto"))]
+    let mut m1_hash = create_platform_hash(digest_client.clone());
+    #[cfg(not(feature = "sha2-crypto"))]
+    let mut l1_hash = create_platform_hash(digest_client);
     let mut rng = SystemRng::new(rng_client);
     let mut cert_store = DemoCertStore::new();
     let evidence = DemoEvidence::new();

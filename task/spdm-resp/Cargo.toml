@@ -13,11 +13,22 @@ mctp = { workspace = true }
 
 # SPDM library from external repository
 spdm-lib = { git = "https://github.com/rusty1968/spdm-lib.git", branch = "antrocha/responder-app-crypto", package = "spdm-lib", default-features = false, features = [] }
+embedded-tls = { version = "0.17", default-features = false }
+
+# Pure Rust crypto for embedded environments (optional)
+sha2 = { version = "0.10", default-features = false, optional = true }
 
 # Additional dependencies that might be needed
 heapless = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
+
+[features]
+default = ["sha2-crypto"]
+# Crypto implementation features
+sha2-crypto = ["dep:sha2"]
+# IPC-only mode (no additional crypto dependencies)
+ipc-only = []
 
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

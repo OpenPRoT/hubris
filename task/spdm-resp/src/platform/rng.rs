@@ -2,7 +2,7 @@
 
 
 use spdm_lib::platform::rng::{SpdmRng, SpdmRngError};
-use drv_rng_api::{Rng, RngError};
+use drv_rng_api::Rng;
 
 pub struct SystemRng {
     rng: Rng,
