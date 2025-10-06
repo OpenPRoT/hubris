@@ -178,6 +178,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-ecdsa-test"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+]
+
+[[package]]
 name = "ast1060-i2c-scaffold"
 version = "0.1.0"
 dependencies = [
@@ -2048,6 +2058,36 @@ name = "drv-onewire-devices"
 version = "0.1.0"
 dependencies = [
  "drv-onewire",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "drv-openprot-ecdsa-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "drv-openprot-ecdsa-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-openprot-ecdsa-api",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy 0.8.27",
@@ -5663,6 +5703,14 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "task-ecdsa-test"
+version = "0.1.0"
+dependencies = [
+ "drv-openprot-ecdsa-api",
+ "userlib",
 ]
 
 [[package]]
