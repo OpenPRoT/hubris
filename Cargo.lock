@@ -3935,6 +3935,12 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 [[package]]
 name = "mctp"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8280034c4afaa377d825c17261987ff26a638369ea4b46919e1726741eec253"
+
+[[package]]
+name = "mctp"
+version = "0.2.0"
 source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#38017b1dc25ec740133ded0169e94bee63a13957"
 
 [[package]]
@@ -3947,7 +3953,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "num-traits",
  "serde",
  "userlib",
@@ -3960,7 +3966,7 @@ name = "mctp-baremetal"
 version = "0.1.0"
 source = "git+https://github.com/9elements/mctp-lib.git?branch=buildup#757adfb99f5d93f2c64ca8bdd17723f54b16a25c"
 dependencies = [
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-estack",
 ]
 
@@ -3968,7 +3974,7 @@ dependencies = [
 name = "mctp-echo"
 version = "0.1.0"
 dependencies = [
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "userlib",
 ]
@@ -3982,9 +3988,19 @@ dependencies = [
  "embedded-io",
  "heapless 0.8.0",
  "log",
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "smbus-pec",
  "uuid",
+]
+
+[[package]]
+name = "mctp-linux"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83222ce4977f40219231ca53cce871a2b24809b9e470d07301312d98fefa797a"
+dependencies = [
+ "libc",
+ "mctp 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4002,7 +4018,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "mctp-baremetal",
  "nb 1.1.0",
@@ -6452,6 +6468,14 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "test-mctp-request"
+version = "0.1.0"
+dependencies = [
+ "mctp 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mctp-linux",
 ]
 
 [[package]]
