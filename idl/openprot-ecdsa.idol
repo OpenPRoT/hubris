@@ -1,0 +1,59 @@
+// Cryptographic operations interface for ECDSA-384 signing and verification
+//
+// Data Formats:
+// 
+// ECDSA-384 Signatures:
+//   - Format: DER-encoded ASN.1 ECDSA-Sig-Value structure
+//   - Structure: SEQUENCE { r INTEGER, s INTEGER }
+//   - Size: Variable, typically 103-104 bytes, maximum 104 bytes
+//   - r and s are 384-bit integers (48 bytes each when zero-padded)
+//   - DER encoding adds ~8 bytes of ASN.1 overhead
+//
+// P-384 Public Keys:
+//   - Format: Uncompressed SEC1 point format
+//   - Structure: 0x04 || x-coordinate || y-coordinate
+//   - Size: 97 bytes (1 + 48 + 48)
+//   - x and y coordinates are 384-bit big-endian integers
+//
+// SHA-384 Hashes:
+//   - Size: 48 bytes
+//   - Format: Raw binary hash output
+//
+// Key IDs:
+//   - Type: 32-bit unsigned integer
+//   - Implementation-defined mapping to actual key material
+
+Interface(
+    name: "OpenPRoTEcdsa",
+    ops: {
+        "ecdsa384_sign": (
+            doc: "Sign a hash using ECDSA-384 with the specified private key. Returns signature in DER-encoded ASN.1 format.",
+            args: {
+                "key_id": "u32",
+            },
+            leases: {
+                "hash": (type: "[u8]", read: true, max_len: Some(48)), // SHA-384 hash is 48 bytes
+                "signature": (type: "[u8]", write: true, max_len: Some(104)), // DER-encoded ECDSA-384 signature (max 104 bytes)
+            },
+            reply: Result(
+                ok: "u32", // actual signature length
+                err: CLike("EcdsaError"),
+            ),
+        ),
+        
+        "ecdsa384_verify": (
+            doc: "Verify an ECDSA-384 signature against a hash using the provided public key. Expects DER-encoded ASN.1 signature format.",
+            args: {},
+            leases: {
+                "hash": (type: "[u8]", read: true, max_len: Some(48)), // SHA-384 hash is 48 bytes
+                "signature": (type: "[u8]", read: true, max_len: Some(104)), // DER-encoded ECDSA-384 signature (max 104 bytes)
+                "public_key": (type: "[u8]", read: true, max_len: Some(97)), // Uncompressed SEC1 P-384 public key: 1 byte prefix + 48 bytes x + 48 bytes y
+            },
+            reply: Result(
+                ok: "bool", // true if signature is valid
+                err: CLike("EcdsaError"),
+            ),
+            idempotent: true,
+        ),
+    }
+)
