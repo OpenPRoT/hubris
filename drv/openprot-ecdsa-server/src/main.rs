@@ -35,8 +35,9 @@ impl idl::InOrderOpenPRoTEcdsaImpl for ServerImpl {
         _msg: &RecvMessage,
         key_id: u32,
         hash: LenLimit<Leased<R, [u8]>, 48>,
-        signature: LenLimit<Leased<W, [u8]>, 104>,
-    ) -> Result<u32, RequestError<EcdsaError>> {
+        signature: LenLimit<Leased<W, [u8]>, 96>,
+    ) -> Result<(), RequestError<EcdsaError>> {
+
         // TODO: Implement ECDSA-384 signing
         // 1. Validate key_id exists and is suitable for signing
         // 2. Validate hash is exactly 48 bytes (SHA-384)
@@ -58,8 +59,8 @@ impl idl::InOrderOpenPRoTEcdsaImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
         hash: LenLimit<Leased<R, [u8]>, 48>,
-        signature: LenLimit<Leased<R, [u8]>, 104>,
-        public_key: LenLimit<Leased<R, [u8]>, 97>,
+        signature: LenLimit<Leased<R, [u8]>, 96>,
+        public_key: LenLimit<Leased<R, [u8]>, 96>,
     ) -> Result<bool, RequestError<EcdsaError>> {
         // TODO: Implement ECDSA-384 verification
         // 1. Validate hash is exactly 48 bytes (SHA-384)
