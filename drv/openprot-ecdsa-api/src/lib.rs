@@ -26,29 +26,20 @@ pub enum EcdsaError {
     /// Key not found
     KeyNotFound = 2,
     
-    /// Invalid signature format or length
-    InvalidSignature = 3,
-    
-    /// Invalid hash length for the algorithm
-    InvalidHashLength = 4,
+    /// Invalid parameters (length, format, or content)
+    InvalidParameters = 3,
     
     /// Signature verification failed
-    VerificationFailed = 5,
-    
-    /// Hardware security module error
-    HsmError = 6,
-    
-    /// Buffer too small for the operation
-    BufferTooSmall = 7,
+    VerificationFailed = 4,
     
     /// Cryptographic hardware not available
-    HardwareNotAvailable = 8,
+    HardwareNotAvailable = 5,
     
     /// Key is not suitable for the requested operation
-    InvalidKeyType = 9,
+    InvalidKeyType = 6,
     
     /// Internal error in cryptographic implementation
-    InternalError = 10,
+    InternalError = 7,
 
     #[idol(server_death)]
     ServerRestarted,
