@@ -2089,6 +2089,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",

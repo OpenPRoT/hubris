@@ -3,54 +3,96 @@
 // Data Formats:
 // 
 // ECDSA-384 Signatures:
-//   - Format: DER-encoded ASN.1 ECDSA-Sig-Value structure
-//   - Structure: SEQUENCE { r INTEGER, s INTEGER }
-//   - Size: Variable, typically 103-104 bytes, maximum 104 bytes
-//   - r and s are 384-bit integers (48 bytes each when zero-padded)
-//   - DER encoding adds ~8 bytes of ASN.1 overhead
+//   - Format: Raw signature format (r || s)
+//   - Structure: r-value || s-value
+//   - Size: Fixed 96 bytes (48 + 48)
+//   - r: 48 bytes, big-endian integer (signature r component)
+//   - s: 48 bytes, big-endian integer (signature s component)
+//   - Both r and s are in range [1, n-1] where n is the P-384 curve order
+//   - Leading zeros are preserved to maintain fixed 48-byte field size
+//   - Compliant with NIST FIPS 186-4 and SEC1 standards
 //
 // P-384 Public Keys:
-//   - Format: Uncompressed SEC1 point format
-//   - Structure: 0x04 || x-coordinate || y-coordinate
-//   - Size: 97 bytes (1 + 48 + 48)
-//   - x and y coordinates are 384-bit big-endian integers
+//   - Format: Raw affine coordinates (x || y)
+//   - Structure: x-coordinate || y-coordinate
+//   - Size: Fixed 96 bytes (48 + 48)
+//   - x: 48 bytes, big-endian integer (point x-coordinate)
+//   - y: 48 bytes, big-endian integer (point y-coordinate)
+//   - No SEC1 prefix byte (0x04) - raw coordinates only
+//   - Coordinates represent a point on the NIST P-384 elliptic curve
+//   - All coordinates use big-endian (network byte order) encoding
 //
 // SHA-384 Hashes:
-//   - Size: 48 bytes
-//   - Format: Raw binary hash output
+//   - Size: Fixed 48 bytes
+//   - Format: Raw binary hash digest output
+//   - Pre-computed by caller (this interface does not perform hashing)
+//   - Must be computed over the actual message to be signed/verified
 //
 // Key IDs:
 //   - Type: 32-bit unsigned integer
-//   - Implementation-defined mapping to actual key material
-
+//   - Implementation-defined mapping to private key material
+//   - Used only for signing operations (verify uses explicit public key)
+//   - Key storage and lifecycle management is implementation-specific
+//
+// Byte Order:
+//   - All multi-byte integers use big-endian encoding (network byte order)
+//   - This matches NIST, SEC1, and RustCrypto conventions
+//   - No byte swapping required when interfacing with standard crypto libraries
+//
+// Design Rationale:
+//   - Fixed sizes enable static allocation and predictable memory usage
+//   - Big-endian encoding ensures compatibility with cryptographic standards
+//   - Zero-copy operations possible with proper alignment
+//   - Direct compatibility with hardware crypto accelerators
 Interface(
     name: "OpenPRoTEcdsa",
     ops: {
         "ecdsa384_sign": (
-            doc: "Sign a hash using ECDSA-384 with the specified private key. Returns signature in DER-encoded ASN.1 format.",
+            doc: "Sign a hash using ECDSA-384 with the specified private key.
+                  
+                  Format: Raw signature (r || s), 96 bytes total
+                  - r: 48 bytes, big-endian integer
+                  - s: 48 bytes, big-endian integer
+                  
+                  All multi-byte values use big-endian (network byte order) encoding.",
             args: {
                 "key_id": "u32",
             },
             leases: {
-                "hash": (type: "[u8]", read: true, max_len: Some(48)), // SHA-384 hash is 48 bytes
-                "signature": (type: "[u8]", write: true, max_len: Some(104)), // DER-encoded ECDSA-384 signature (max 104 bytes)
+                "hash": (type: "[u8]", read: true, max_len: Some(48)), 
+                    // SHA-384 hash, 48 bytes
+                "signature": (type: "[u8]", write: true, max_len: Some(96)), 
+                    // Raw r || s (48 + 48 bytes, big-endian)
             },
             reply: Result(
-                ok: "u32", // actual signature length
+                ok: "()",
                 err: CLike("EcdsaError"),
             ),
         ),
         
         "ecdsa384_verify": (
-            doc: "Verify an ECDSA-384 signature against a hash using the provided public key. Expects DER-encoded ASN.1 signature format.",
+            doc: "Verify an ECDSA-384 signature against a hash using the provided public key.
+                  
+                  Signature format: Raw (r || s), 96 bytes total
+                  - r: 48 bytes, big-endian integer
+                  - s: 48 bytes, big-endian integer
+                  
+                  Public key format: Raw affine coordinates (x || y), 96 bytes total
+                  - x: 48 bytes, big-endian integer
+                  - y: 48 bytes, big-endian integer
+                  
+                  All multi-byte values use big-endian (network byte order) encoding.",
             args: {},
             leases: {
-                "hash": (type: "[u8]", read: true, max_len: Some(48)), // SHA-384 hash is 48 bytes
-                "signature": (type: "[u8]", read: true, max_len: Some(104)), // DER-encoded ECDSA-384 signature (max 104 bytes)
-                "public_key": (type: "[u8]", read: true, max_len: Some(97)), // Uncompressed SEC1 P-384 public key: 1 byte prefix + 48 bytes x + 48 bytes y
+                "hash": (type: "[u8]", read: true, max_len: Some(48)),
+                    // SHA-384 hash, 48 bytes
+                "signature": (type: "[u8]", read: true, max_len: Some(96)),
+                    // Raw r || s (48 + 48 bytes, big-endian)
+                "public_key": (type: "[u8]", read: true, max_len: Some(96)),
+                    // Raw x || y (48 + 48 bytes, big-endian)
             },
             reply: Result(
-                ok: "bool", // true if signature is valid
+                ok: "bool",
                 err: CLike("EcdsaError"),
             ),
             idempotent: true,
