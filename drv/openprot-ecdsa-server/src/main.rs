@@ -13,6 +13,7 @@
 
 use openprot_hal_blocking::ecdsa::{P384, PublicKey, SerializablePublicKey, SerializableSignature, Signature, ErrorKind};
 use openprot_hal_blocking::digest::Digest;
+use zerocopy::IntoBytes;
 
 use drv_openprot_ecdsa_api::EcdsaError;
 use idol_runtime::{
@@ -23,14 +24,14 @@ use userlib::RecvMessage;
 /// P384 Serializable Public Key Implementation
 mod p384_key {
     use super::*;
-    use zerocopy::{IntoBytes, FromBytes};
+    use zerocopy::{IntoBytes, FromBytes, Immutable};
     
     /// A serializable public key for the P384 elliptic curve.
     /// 
     /// This implementation provides both coordinate access and serialization
     /// capabilities for P384 public keys, supporting the standard 96-byte
     /// uncompressed format (48 bytes each for x and y coordinates).
-    #[derive(Clone, Debug, IntoBytes, FromBytes)]
+    #[derive(Clone, Debug, IntoBytes, FromBytes, Immutable)]
     #[repr(C)]
     pub struct P384PublicKey {
         /// X coordinate (48 bytes for P384)
@@ -97,7 +98,7 @@ mod p384_key {
     /// This implementation provides both signature validation and serialization
     /// capabilities for P384 ECDSA signatures, supporting the standard 96-byte
     /// format (48 bytes each for r and s components).
-    #[derive(Clone, Debug, IntoBytes, FromBytes)]
+    #[derive(Clone, Debug, IntoBytes, FromBytes, Immutable)]
     #[repr(C)]
     pub struct P384Signature {
         /// R component (48 bytes for P384)
@@ -245,17 +246,11 @@ impl<S, V> idl::InOrderOpenPRoTEcdsaImpl for ServerImpl<S, V> {
                     Err(_) => return Err(RequestError::Runtime(EcdsaError::InternalError))
                 };
                 
-                // Extract signature components using the Signature trait method
-                let mut r_out = [0u8; 48];
-                let mut s_out = [0u8; 48];
-                signature_obj.coordinates(&mut r_out, &mut s_out);
+                // Use zero-copy serialization with SerializableSignature
+                // Since P384Signature implements IntoBytes, we can serialize directly
+                let signature_bytes = signature_obj.as_bytes();
                 
-                // Write signature components to output lease (r || s format)
-                let mut signature_bytes = [0u8; 96];
-                signature_bytes[0..48].copy_from_slice(&r_out);
-                signature_bytes[48..96].copy_from_slice(&s_out);
-                
-                signature.write_range(0..96, &signature_bytes)
+                signature.write_range(0..96, signature_bytes)
                     .map_err(|_| RequestError::Runtime(EcdsaError::InternalError))?;
                 
                 // TODO: Remove this placeholder return once real implementation is complete
@@ -299,45 +294,37 @@ impl<S, V> idl::InOrderOpenPRoTEcdsaImpl for ServerImpl<S, V> {
         for (i, chunk) in hash_buf.chunks_exact(4).enumerate() {
             digest_words[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
-        let digest = Digest::new(digest_words);
+        let _digest = Digest::new(digest_words);
         
         // Get the verifier from either variant
-        let verifier = match self {
+        let _verifier = match self {
             Self::VerifierOnly { verifier } => verifier,
             Self::SignerVerifier { verifier, .. } => verifier,
         };
         
         // TODO: Replace with actual implementation using verifier
-        // Construct concrete P384PublicKey using the PublicKey trait method
-        let mut x_coord = [0u8; 48];
-        let mut y_coord = [0u8; 48];
-        x_coord.copy_from_slice(&pubkey_buf[0..48]);
-        y_coord.copy_from_slice(&pubkey_buf[48..96]);
-        
-        let pubkey = match p384_key::P384PublicKey::from_coordinates(x_coord, y_coord) {
+        // Use zero-copy deserialization with SerializablePublicKey
+        // Since P384PublicKey implements IntoBytes + FromBytes, we can deserialize directly
+        let _pubkey: p384_key::P384PublicKey = match zerocopy::FromBytes::read_from_bytes(&pubkey_buf[..]) {
             Ok(key) => key,
             Err(_) => return Err(RequestError::Runtime(EcdsaError::InvalidParameters))
         };
 
-        // Construct concrete P384Signature using the Signature trait method
-        let mut r_component = [0u8; 48];
-        let mut s_component = [0u8; 48];
-        r_component.copy_from_slice(&sig_buf[0..48]);
-        s_component.copy_from_slice(&sig_buf[48..96]);
-        
-        let signature_obj = match p384_key::P384Signature::from_coordinates(r_component, s_component) {
+        // Use zero-copy deserialization with SerializableSignature  
+        // Since P384Signature implements IntoBytes + FromBytes, we can deserialize directly
+        let _signature_obj: p384_key::P384Signature = match zerocopy::FromBytes::read_from_bytes(&sig_buf[..]) {
             Ok(sig) => sig,
             Err(_) => return Err(RequestError::Runtime(EcdsaError::InvalidParameters))
         };
 
-        // Now we have concrete types constructed using openprot traits:
-        // - pubkey: P384PublicKey via PublicKey<P384>::from_coordinates()
-        // - signature_obj: P384Signature via Signature<P384>::from_coordinates()
-        // - digest: Digest for the hash
+        // Now we have concrete types constructed using zero-copy deserialization:
+        // - _pubkey: P384PublicKey via zerocopy::FromBytes
+        // - _signature_obj: P384Signature via zerocopy::FromBytes  
+        // - _digest: Digest for the hash
 
         // TODO: Implement actual ECDSA verification using the verifier trait
         // This would typically look like:
-        // let verification_result = verifier.verify(&digest, &signature_obj, &pubkey)?;
+        // let verification_result = _verifier.verify(&_digest, &_signature_obj, &_pubkey)?;
         // Ok(verification_result)
         
         // For now, return an error indicating not implemented
