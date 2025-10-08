@@ -1070,7 +1070,7 @@ version = "0.1.0"
 dependencies = [
  "ast1060-pac",
  "embedded-hal 1.0.0",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b)",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]
@@ -1497,7 +1497,7 @@ dependencies = [
  "hubpack",
  "num-derive 0.4.2",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b)",
  "openprot-platform-mock",
  "serde",
  "serde-big-array 0.4.1",
@@ -2103,7 +2103,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b)",
  "rand_core 0.6.4",
  "userlib",
  "zerocopy 0.8.27",
@@ -4373,10 +4373,10 @@ dependencies = [
 [[package]]
 name = "openprot-hal-blocking"
 version = "0.1.0"
-source = "git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b#f52c6b848cc0adb8f13528cb7e3f81a655c22b5b"
+source = "git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b#3563607ea21ef2d9b23a4f902a10e4f44a27c33b"
 dependencies = [
  "embedded-hal 1.0.0",
- "rand_core 0.9.3",
+ "rand_core 0.6.4",
  "subtle",
  "zerocopy 0.8.27",
  "zeroize",
@@ -4385,11 +4385,11 @@ dependencies = [
 [[package]]
 name = "openprot-platform-mock"
 version = "0.1.0"
-source = "git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b#f52c6b848cc0adb8f13528cb7e3f81a655c22b5b"
+source = "git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b#3563607ea21ef2d9b23a4f902a10e4f44a27c33b"
 dependencies = [
  "cortex-m",
  "embedded-hal 1.0.0",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=f52c6b848cc0adb8f13528cb7e3f81a655c22b5b)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=3563607ea21ef2d9b23a4f902a10e4f44a27c33b)",
 ]
 
 [[package]]

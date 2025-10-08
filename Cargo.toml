@@ -168,9 +168,9 @@ transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-con
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
 # OpenPRot
-openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
-openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
-openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
+openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", rev = "3563607ea21ef2d9b23a4f902a10e4f44a27c33b" }
+openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", rev = "3563607ea21ef2d9b23a4f902a10e4f44a27c33b" }
+openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", rev = "3563607ea21ef2d9b23a4f902a10e4f44a27c33b" }
 
 [patch.crates-io]
 # See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2
