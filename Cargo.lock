@@ -158,7 +158,7 @@ checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 [[package]]
 name = "aspeed-ddk"
 version = "0.1.0"
-source = "git+https://github.com/aspeedtech-bmc/aspeed-rust.git#af384a3e90f23da4ce175d4fd29e73e06de104c7"
+source = "git+https://github.com/rusty1968/aspeed-rust.git?branch=aspeed-integration#22d7c9598195e86bf03b65fd59ae456ef9b90123"
 dependencies = [
  "ast1060-pac",
  "cortex-m",
@@ -170,7 +170,7 @@ dependencies = [
  "heapless 0.8.0",
  "hex-literal",
  "nb 1.1.0",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/OpenPRoT/openprot)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
  "panic-halt 1.0.0",
  "paste",
  "proposed-traits",
@@ -1486,7 +1486,7 @@ dependencies = [
  "hubpack",
  "num-derive 0.4.2",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=70e355dad43c6397bdda7074a6f7a55bb7777146)",
  "openprot-platform-mock",
  "serde",
  "serde-big-array 0.4.1",
@@ -2089,7 +2089,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
+ "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=70e355dad43c6397bdda7074a6f7a55bb7777146)",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -4357,7 +4357,7 @@ dependencies = [
 [[package]]
 name = "openprot-hal-blocking"
 version = "0.1.0"
-source = "git+https://github.com/OpenPRoT/openprot#2c2a8760a5b22ab25c9bc867799d488fa3033688"
+source = "git+https://github.com/rusty1968/openprot.git?rev=70e355dad43c6397bdda7074a6f7a55bb7777146#70e355dad43c6397bdda7074a6f7a55bb7777146"
 dependencies = [
  "embedded-hal 1.0.0",
  "rand_core 0.9.3",
