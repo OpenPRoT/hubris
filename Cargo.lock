@@ -2090,9 +2090,11 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?rev=70e355dad43c6397bdda7074a6f7a55bb7777146)",
+ "rand_core 0.6.4",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+ "zeroize",
 ]
 
 [[package]]
