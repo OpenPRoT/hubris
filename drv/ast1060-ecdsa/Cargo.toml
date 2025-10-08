@@ -1,0 +1,13 @@
+[package]
+name = "drv-ast1060-ecdsa"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zerocopy-derive = { workspace = true }
+openprot-hal-blocking = { workspace = true }
+zerocopy = { workspace = true }
+embedded-hal-1 = { workspace = true }
+ast1060-pac = { workspace = true }
+[lints]
+workspace = true

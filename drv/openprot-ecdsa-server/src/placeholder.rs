@@ -5,8 +5,7 @@
 //! provide the correct trait interfaces but do not perform actual cryptographic
 //! operations.
 
-use crate::p384_key;
-use openprot_hal_blocking::ecdsa::{EcdsaVerify, ErrorType, EcdsaSign, PrivateKey, P384, ErrorKind};
+use openprot_hal_blocking::ecdsa::{EcdsaVerify, ErrorType, EcdsaSign, PrivateKey, P384, P384PublicKey, P384Signature, ErrorKind};
 use openprot_hal_blocking::digest::DigestAlgorithm;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -21,8 +20,8 @@ impl ErrorType for PlaceholderVerifier {
 }
 
 impl EcdsaVerify<P384> for PlaceholderVerifier {
-    type PublicKey = p384_key::P384PublicKey;
-    type Signature = p384_key::P384Signature;
+    type PublicKey = P384PublicKey;
+    type Signature = P384Signature;
     
     fn verify(
         &mut self,
@@ -80,7 +79,7 @@ impl ErrorType for PlaceholderSigner {
 
 impl EcdsaSign<P384> for PlaceholderSigner {
     type PrivateKey = P384PrivateKey; // Use our concrete private key type
-    type Signature = p384_key::P384Signature;
+    type Signature = P384Signature;
     
     fn sign<R>(
         &mut self,
@@ -100,6 +99,6 @@ impl EcdsaSign<P384> for PlaceholderSigner {
         let mut placeholder_s = [1u8; 48];
         placeholder_s[47] = 42; // Make it slightly non-trivial
         
-        Ok(p384_key::P384Signature::new(placeholder_r, placeholder_s))
+        Ok(P384Signature::new(placeholder_r, placeholder_s))
     }
 }

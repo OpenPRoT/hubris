@@ -75,6 +75,7 @@ derive_more = { version = "0.99", default-features = false, features = ["from", 
 digest = { version = "0.10", default-features = false }
 dunce = { version = "1.0.2", default-features = false }
 embedded-hal = { version = "0.2", default-features = false }
+embedded-hal-1 = { version = "1", default-features = false , package = "embedded-hal" }
 enum-kinds = { version = "0.5.1", default-features = false, features = ["no-stdlib"] }
 enum-map = { version = "2.7.3", default-features = false }
 filetime = { version = "0.2.12", default-features = false }
@@ -167,9 +168,9 @@ transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-con
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
 # OpenPRot
-openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
-openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", rev = "70e355dad43c6397bdda7074a6f7a55bb7777146" }
-openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
+openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
+openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
+openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", rev = "f52c6b848cc0adb8f13528cb7e3f81a655c22b5b" }
 
 [patch.crates-io]
 # See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2
