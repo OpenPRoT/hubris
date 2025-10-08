@@ -10,15 +10,21 @@ zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
 drv-openprot-ecdsa-api = { path = "../openprot-ecdsa-api" }
+drv-ast1060-ecdsa = { path = "../ast1060-ecdsa", optional = true }
+ast1060-pac = { workspace = true, optional = true }
+embedded-hal-1 = { workspace = true, optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 openprot-hal-blocking = { workspace = true }
+rand_core = { workspace = true }
+zeroize = { workspace = true }
 [build-dependencies]
 build-util = { path = "../../build/util" }
 idol = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
+ast1060-verifier = ["drv-ast1060-ecdsa", "ast1060-pac", "embedded-hal-1"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since some of our features are mutually exclusive.

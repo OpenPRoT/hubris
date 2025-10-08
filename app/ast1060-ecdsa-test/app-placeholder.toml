@@ -38,7 +38,6 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2048
-features = ["ast1060-verifier"]
 
 [tasks.ecdsa_test]
 name = "task-ecdsa-test"
