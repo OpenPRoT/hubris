@@ -88,16 +88,16 @@
 
 #![no_std]
 #![no_main]
- use drv_ast1060_ecdsa::AspeedEcdsa;
+
 use crate::placeholder::P384PrivateKey;
-use openprot_hal_blocking::ecdsa::{EcdsaVerify, EcdsaSign, P384, P384PublicKey, P384Signature};
 use openprot_hal_blocking::digest::Digest;
+use openprot_hal_blocking::ecdsa::{
+    EcdsaSign, EcdsaVerify, P384PublicKey, P384Signature, P384,
+};
 use zerocopy::IntoBytes;
 
 use drv_openprot_ecdsa_api::EcdsaError;
-use idol_runtime::{
-    LenLimit, Leased, NotificationHandler, RequestError, R, W,
-};
+use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError, R, W};
 use userlib::RecvMessage;
 
 /// Performs ECDSA-384 signature verification using P-384 elliptic curve cryptography.
@@ -146,48 +146,60 @@ fn verify_ecdsa384<V>(
 where
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
-        // Validate input lengths
-        if hash.len() != 48 || signature.len() != 96 || public_key.len() != 96 {
-            return Err(RequestError::Runtime(EcdsaError::InvalidParameters));
-        }
-        
-        // Read inputs from leases
-        let mut hash_buf = [0u8; 48];
-        let mut pubkey_buf = [0u8; 96];
-        let mut sig_buf = [0u8; 96];
-        
-        hash.read_range(0..48, &mut hash_buf)
-            .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
-        public_key.read_range(0..96, &mut pubkey_buf)
-            .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
-        signature.read_range(0..96, &mut sig_buf)
-            .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
+    // Validate input lengths
+    if hash.len() != 48 || signature.len() != 96 || public_key.len() != 96 {
+        return Err(RequestError::Runtime(EcdsaError::InvalidParameters));
+    }
 
-        // Convert hash to digest format
-        let mut digest_words = [0u32; 12];
-        for (i, chunk) in hash_buf.chunks_exact(4).enumerate() {
-            digest_words[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-        }
-        
-        // Deserialize public key and signature
-        let pubkey: P384PublicKey = match zerocopy::FromBytes::read_from_bytes(&pubkey_buf[..]) {
+    // Read inputs from leases
+    let mut hash_buf = [0u8; 48];
+    let mut pubkey_buf = [0u8; 96];
+    let mut sig_buf = [0u8; 96];
+
+    hash.read_range(0..48, &mut hash_buf)
+        .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
+    public_key
+        .read_range(0..96, &mut pubkey_buf)
+        .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
+    signature
+        .read_range(0..96, &mut sig_buf)
+        .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
+
+    // Convert hash to digest format
+    let mut digest_words = [0u32; 12];
+    for (i, chunk) in hash_buf.chunks_exact(4).enumerate() {
+        digest_words[i] =
+            u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    }
+
+    // Deserialize public key and signature
+    let pubkey: P384PublicKey =
+        match zerocopy::FromBytes::read_from_bytes(&pubkey_buf[..]) {
             Ok(key) => key,
-            Err(_) => return Err(RequestError::Runtime(EcdsaError::InvalidParameters))
+            Err(_) => {
+                return Err(RequestError::Runtime(
+                    EcdsaError::InvalidParameters,
+                ))
+            }
         };
 
-        let signature_obj: P384Signature = match zerocopy::FromBytes::read_from_bytes(&sig_buf[..]) {
+    let signature_obj: P384Signature =
+        match zerocopy::FromBytes::read_from_bytes(&sig_buf[..]) {
             Ok(sig) => sig,
-            Err(_) => return Err(RequestError::Runtime(EcdsaError::InvalidParameters))
+            Err(_) => {
+                return Err(RequestError::Runtime(
+                    EcdsaError::InvalidParameters,
+                ))
+            }
         };
 
-        // Dispatch to the verifier
-        let digest = Digest::new(digest_words);
-        match verifier.verify(&pubkey, digest, &signature_obj) {
-            Ok(()) => Ok(true),  // Verification succeeded
-            Err(_) => Ok(false), // Verification failed
-        }
+    // Dispatch to the verifier
+    let digest = Digest::new(digest_words);
+    match verifier.verify(&pubkey, digest, &signature_obj) {
+        Ok(()) => Ok(true),  // Verification succeeded
+        Err(_) => Ok(false), // Verification failed
+    }
 }
-
 
 /// Placeholder implementations for testing and development
 mod placeholder;
@@ -212,15 +224,15 @@ mod placeholder;
 /// - ✅ `ecdsa384_verify()` - Verifies P-384 ECDSA signatures
 /// - ❌ `ecdsa384_sign()` - Returns `HardwareNotAvailable` error
 ///
-struct VerifierOnlyServer<V> 
-where 
+struct VerifierOnlyServer<V>
+where
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
     verifier: V,
 }
 
-struct FullServer<S, V> 
-where 
+struct FullServer<S, V>
+where
     S: EcdsaSign<P384, PrivateKey = P384PrivateKey, Signature = P384Signature>,
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
@@ -228,29 +240,29 @@ where
     verifier: V,
 }
 
-impl<V> VerifierOnlyServer<V> 
-where 
+impl<V> VerifierOnlyServer<V>
+where
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
+    #[allow(dead_code)] 
     fn new(verifier: V) -> Self {
         Self { verifier }
     }
 }
 
-impl<S, V> FullServer<S, V> 
-where 
+impl<S, V> FullServer<S, V>
+where
     S: EcdsaSign<P384, PrivateKey = P384PrivateKey, Signature = P384Signature>,
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
-    
-    #[allow(dead_code)] // Mark as unused for now
+    #[allow(dead_code)] 
     fn new(signer: S, verifier: V) -> Self {
         Self { signer, verifier }
     }
 }
 
-impl<V> idl::InOrderOpenPRoTEcdsaImpl for VerifierOnlyServer<V> 
-where 
+impl<V> idl::InOrderOpenPRoTEcdsaImpl for VerifierOnlyServer<V>
+where
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
     fn ecdsa384_sign(
@@ -275,8 +287,8 @@ where
     }
 }
 
-impl<V> NotificationHandler for VerifierOnlyServer<V> 
-where 
+impl<V> NotificationHandler for VerifierOnlyServer<V>
+where
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
     fn current_notification_mask(&self) -> u32 {
@@ -290,8 +302,8 @@ where
 }
 
 // Implementation for FullServer with both signing and verification
-impl<S, V> idl::InOrderOpenPRoTEcdsaImpl for FullServer<S, V> 
-where 
+impl<S, V> idl::InOrderOpenPRoTEcdsaImpl for FullServer<S, V>
+where
     S: EcdsaSign<P384, PrivateKey = P384PrivateKey, Signature = P384Signature>,
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
@@ -306,51 +318,54 @@ where
         if hash.len() != 48 {
             return Err(RequestError::Runtime(EcdsaError::InvalidParameters));
         }
-        
+
         // Validate signature output buffer - must be exactly 96 bytes for P384
         if signature.len() != 96 {
             return Err(RequestError::Runtime(EcdsaError::InvalidParameters));
         }
-        
+
         let mut hash_buf = [0u8; 48];
-        hash.read_range(0..48, &mut hash_buf)
-            .map_err(|_| RequestError::Runtime(EcdsaError::InvalidParameters))?;
+        hash.read_range(0..48, &mut hash_buf).map_err(|_| {
+            RequestError::Runtime(EcdsaError::InvalidParameters)
+        })?;
 
         // Convert hash to P384 digest format (48 bytes = 12 u32 words for SHA-384)
         let mut digest_words = [0u32; 12];
         for (i, chunk) in hash_buf.chunks_exact(4).enumerate() {
-            digest_words[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            digest_words[i] =
+                u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
         let digest = Digest::new(digest_words);
-        
+
         // TODO: In a real implementation, this would:
         // 1. Load the private key for key_id from secure storage
         // 2. Validate the private key is suitable for signing
         // 3. Use a proper hardware RNG
         // 4. Dispatch to the signer with proper RNG
-        
+
         // For now, use placeholder signer directly
         let private_key = P384PrivateKey::new([1u8; 48]); // Placeholder key
-        
+
         // TODO: Use actual signer when RNG issues are resolved
         // match self.signer.sign(&private_key, digest, &mut rng) {
         //     Ok(sig) => { /* serialize sig to signature lease */ }
         //     Err(_) => return Err(RequestError::Runtime(EcdsaError::InternalError))
         // }
-        
+
         // For now, create placeholder signature directly
         let placeholder_r = [0u8; 48];
         let mut placeholder_s = [1u8; 48];
         placeholder_s[47] = 42; // Make it slightly non-trivial
-        
+
         let signature_obj = P384Signature::new(placeholder_r, placeholder_s);
-        
+
         // Use zero-copy serialization
         let signature_bytes = signature_obj.as_bytes();
-        
-        signature.write_range(0..96, signature_bytes)
+
+        signature
+            .write_range(0..96, signature_bytes)
             .map_err(|_| RequestError::Runtime(EcdsaError::InternalError))?;
-        
+
         Ok(())
     }
 
@@ -365,8 +380,8 @@ where
     }
 }
 
-impl<S, V> NotificationHandler for FullServer<S, V> 
-where 
+impl<S, V> NotificationHandler for FullServer<S, V>
+where
     S: EcdsaSign<P384, PrivateKey = P384PrivateKey, Signature = P384Signature>,
     V: EcdsaVerify<P384, PublicKey = P384PublicKey, Signature = P384Signature>,
 {
@@ -378,8 +393,6 @@ where
         // No notifications to handle
     }
 }
-
-
 
 /// AST1060 hardware backend implementation for ECDSA operations.
 ///
@@ -403,8 +416,8 @@ where
 /// - Hardware delay implementation for timing-sensitive operations
 #[cfg(feature = "ast1060-verifier")]
 mod ast1060_backend {
-    use super::AspeedEcdsa;
     use ast1060_pac as device;
+    use drv_ast1060_ecdsa::AspeedEcdsa;
     use embedded_hal_1::delay::DelayNs;
 
     /// Simple delay implementation using busy waiting for AST1060 operations.
@@ -472,7 +485,7 @@ mod ast1060_backend {
         // Use steal() to access peripherals like ast1060-uart does
         let peripherals = unsafe { ast1060_pac::Peripherals::steal() };
         let secure = peripherals.secure;
-        
+
         let delay = SimpleDelay;
         AspeedEcdsa::new(secure, delay)
     }
@@ -523,19 +536,19 @@ fn main() -> ! {
         let verifier = ast1060_backend::create_ecdsa_impl();
 
         let mut server = VerifierOnlyServer::new(verifier);
-            
+
         let mut incoming = [0u8; idl::INCOMING_SIZE];
         loop {
             idol_runtime::dispatch(&mut incoming, &mut server);
         }
     }
-    
+
     #[cfg(not(feature = "ast1060-verifier"))]
     {
         let signer = crate::placeholder::PlaceholderSigner;
         let verifier = crate::placeholder::PlaceholderVerifier;
         let mut server = FullServer::new(signer, verifier);
-        
+
         let mut incoming = [0u8; idl::INCOMING_SIZE];
         loop {
             idol_runtime::dispatch(&mut incoming, &mut server);
@@ -546,6 +559,6 @@ fn main() -> ! {
 // Include the generated server stub
 mod idl {
     use super::EcdsaError;
-    
+
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
