@@ -35,8 +35,7 @@ pub struct MctpSpdmTransport<'a> {
     stack: &'a mctp_api::Stack,
     listener: mctp_api::MctpListener<'a>,
     buffer: &'a mut [u8],
-    pending_eid: Option<mctp::Eid>,
-    pending_msg_type: Option<mctp::MsgType>,
+    pending_resp_channel: Option<mctp_api::MctpRespChannel<'a>>,
 }
 
 impl<'a> MctpSpdmTransport<'a> {
@@ -49,8 +48,7 @@ impl<'a> MctpSpdmTransport<'a> {
             stack,
             listener,
             buffer,
-            pending_eid: None,
-            pending_msg_type: None,
+            pending_resp_channel: None,
         }
     }
 }
@@ -77,18 +75,15 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
         &mut self,
         req: &mut MessageBuf<'_>,
     ) -> TransportResult<()> {
-        // Receive the next MCTP message. We ignore the provided response
-        // channel for now to avoid storing a borrowed reference with a
-        // shorter lifetime than the transport. Sending is stubbed.
+        // Receive the next MCTP message and store the response channel
+        // for later use in send_response.
         let (msg_type, _msg_ic, msg, resp_channel) = self
             .listener
             .recv(self.buffer)
             .map_err(|_| TransportError::ReceiveError)?;
 
-        // Record metadata needed to send a reply later. Use copyable/owned
-        // pieces only so we don't try to store a borrow tied to the call.
-        self.pending_eid = Some(resp_channel.remote_eid());
-        self.pending_msg_type = Some(msg_type);
+        // Store the response channel for later use
+        self.pending_resp_channel = Some(resp_channel);
 
         // Copy the received message into the provided MessageBuf.
         // Use the MessageBuf API to obtain a mutable slice and advance the
@@ -108,29 +103,20 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
         &mut self,
         _resp: &mut MessageBuf<'_>,
     ) -> TransportResult<()> {
-        // Build and send a response using a fresh ReqChannel created from the
-        // stored Stack reference and previously saved remote EID. This avoids
-        // storing the short-lived RespChannel returned by `recv`.
-        let eid = self.pending_eid.ok_or(TransportError::SendError)?;
-        let typ = self.pending_msg_type.unwrap_or(SPDM_MSG_TYPE);
-
-        // Create a request channel for the remote EID
-        let mut req_chan = self
-            .stack
-            .req(eid, None)
-            .map_err(|_| TransportError::SendError)?;
+        // Use the stored response channel to send the response directly
+        let mut resp_channel = self
+            .pending_resp_channel
+            .take()
+            .ok_or(TransportError::SendError)?;
 
         // Extract response bytes from MessageBuf and send
         let data = _resp
             .message_data()
             .map_err(|_| TransportError::SendError)?;
-        req_chan
-            .send(typ, data)
+        
+        resp_channel
+            .send(data)
             .map_err(|_| TransportError::SendError)?;
-
-        // Clear pending metadata
-        self.pending_eid = None;
-        self.pending_msg_type = None;
 
         Ok(())
     }
