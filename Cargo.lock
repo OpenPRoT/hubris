@@ -3322,22 +3322,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "generic-i2c-server"
-version = "0.1.0"
-dependencies = [
- "heapless 0.7.17",
- "zerocopy 0.7.32",
-]
-
-[[package]]
-name = "generic-i2c-server-copy"
-version = "0.1.0"
-dependencies = [
- "heapless 0.7.17",
- "zerocopy 0.7.32",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4197,11 +4181,6 @@ checksum = "d8280034c4afaa377d825c17261987ff26a638369ea4b46919e1726741eec253"
 [[package]]
 name = "mctp"
 version = "0.2.0"
-source = "git+https://github.com/9elements/mctp-rs.git?branch=main#38017b1dc25ec740133ded0169e94bee63a13957"
-
-[[package]]
-name = "mctp"
-version = "0.2.0"
 source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#38017b1dc25ec740133ded0169e94bee63a13957"
 
 [[package]]
@@ -4214,7 +4193,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "num-traits",
  "serde",
  "userlib",
@@ -4235,7 +4214,7 @@ dependencies = [
 name = "mctp-echo"
 version = "0.1.0"
 dependencies = [
- "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "userlib",
 ]
@@ -4279,7 +4258,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lib-ast1060-uart",
- "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "mctp-baremetal",
  "nb 1.1.0",
@@ -5550,7 +5529,7 @@ dependencies = [
  "ecdsa",
  "embedded-tls",
  "heapless 0.7.17",
- "mctp 0.2.0 (git+https://github.com/9elements/mctp-rs.git?branch=main)",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "p384",
  "sha2",
