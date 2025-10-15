@@ -7,7 +7,9 @@ edition = "2021"
 aspeed-ddk = { workspace = true }
 ast1060-pac = { workspace = true }
 embedded-hal = { workspace = true }
+embedded-io = { workspace = true }
 nb = { workspace = true }
+bitflags = { workspace = true }
 
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 
