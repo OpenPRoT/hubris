@@ -13,6 +13,11 @@
 //! ## `read` (2)
 //!
 //! Copies available RX data into lease #0.
+//! Returns `WouldBlock` if no data is available.
+//! When data is available, returns the number of bytes copied as a `u32`.
+//! Indicates `Overflow` if data was lost due to RX buffer overflow.
+//! Otherwise indicates `Success`.
+//!
 
 #![no_std]
 #![no_main]
@@ -20,9 +25,10 @@
 use ast1060_pac as device;
 use core::ops::Deref;
 use embedded_hal::serial::{Read, Write};
+use heapless::Deque;
 use lib_ast1060_uart::{InterruptDecoding, Usart};
 use userlib::*;
-use zerocopy::{IntoByteSlice, IntoBytes};
+use zerocopy::IntoBytes;
 
 const RX_BUF_SIZE: usize = 128;
 
@@ -50,7 +56,8 @@ pub enum ResponseCode {
     BadOp = 1,
     BadArg = 2,
     Busy = 3,
-    Overflow = 4,
+    WouldBlock = 4,
+    Overflow = 5,
 }
 
 struct Transmit {
@@ -70,9 +77,8 @@ fn main() -> ! {
 
     // Field messages.
     let mut tx: Option<Transmit> = None;
-    let mut reg;
-    let mut rx_buf = [0u8; RX_BUF_SIZE];
-    let mut rx_idx = 0;
+    let mut rx_buf: Deque<u8, RX_BUF_SIZE> = Deque::new();
+    let mut overflow = false;
 
     loop {
         let msginfo = sys_recv_open(&mut [], notifications::UART_IRQ_MASK);
@@ -100,13 +106,12 @@ fn main() -> ! {
                         }
                     }
                     InterruptDecoding::RxDataAvailable => {
-                        // Receive data available
-                        reg = usart.read().unwrap_or_else(|_| {
-                            // If we get an error, we just return 0.
-                            0
-                        });
-                        rx_buf[rx_idx % RX_BUF_SIZE] = reg;
-                        rx_idx += 1;
+                        // Receive all data available
+                        while let Ok(byte) = usart.read() {
+                            if rx_buf.push_back(byte).is_err() {
+                                overflow = true;
+                            }
+                        }
                     }
                     InterruptDecoding::LineStatusChange => {
                         // Receive line status change
@@ -114,17 +119,15 @@ fn main() -> ! {
                     }
                     InterruptDecoding::CharacterTimeout => {
                         // Character timeout
-                        reg = usart.read().unwrap_or_else(|_| {
-                            // If we get an error, we just return 0.
-                            0
-                        });
-                        rx_buf[rx_idx % RX_BUF_SIZE] = reg;
-                        rx_idx += 1;
+                        // Receive all data available
+                        while let Ok(byte) = usart.read() {
+                            if rx_buf.push_back(byte).is_err() {
+                                overflow = true;
+                            }
+                        }
                     }
                     _ => {}
                 }
-
-                sys_irq_control(notifications::UART_IRQ_MASK, true);
             }
         } else {
             match OpCode::try_from(msginfo.operation) {
@@ -196,33 +199,82 @@ fn main() -> ! {
                 }
                 Ok(OpCode::Read) => {
                     // Deny incoming reads.
-                    if rx_idx == 0 {
+                    if rx_buf.is_empty() {
                         sys_reply(
                             msginfo.sender,
-                            ResponseCode::BadArg as u32,
+                            ResponseCode::WouldBlock as u32,
                             &[],
                         );
                         continue;
                     } else if msginfo.lease_count == 1 {
-                        sys_irq_control(notifications::UART_IRQ_MASK, false);
-                        sys_borrow_write(
-                            msginfo.sender,
-                            0,
-                            0,
-                            rx_buf[..rx_idx.min(RX_BUF_SIZE)].into_byte_slice(),
-                        );
-                        sys_irq_control(notifications::UART_IRQ_MASK, true);
+                        let (a, b) = rx_buf.as_slices();
+
+                        let (rc, n) = sys_borrow_write(msginfo.sender, 0, 0, a);
+                        if rc != 0 {
+                            sys_reply(
+                                msginfo.sender,
+                                ResponseCode::BadArg as u32,
+                                &[],
+                            );
+                            continue;
+                        }
+
+                        if n != a.len() {
+                            // Could not write all `a` data, return now.
+                            // (Also don't forget to pop it from the buffer.)
+                            let rc = if overflow {
+                                overflow = false;
+                                ResponseCode::Overflow as u32
+                            } else {
+                                ResponseCode::Success as u32
+                            };
+                            sys_reply(
+                                msginfo.sender,
+                                rc,
+                                (n as u32).as_bytes(),
+                            );
+                            for _ in 0..n {
+                                rx_buf.pop_front();
+                            }
+                            continue;
+                        }
+
+                        // All `a` data written, try to write `b` data.
+
+                        let (rc, n) = sys_borrow_write(msginfo.sender, 0, n, b);
+                        if rc != 0 {
+                            sys_reply(
+                                msginfo.sender,
+                                ResponseCode::BadArg as u32,
+                                &[],
+                            );
+                            continue;
+                        }
+                        let rc = if overflow {
+                            overflow = false;
+                            ResponseCode::Overflow as u32
+                        } else {
+                            ResponseCode::Success as u32
+                        };
                         sys_reply(
                             msginfo.sender,
-                            ResponseCode::Success as u32,
-                            &[],
+                            rc,
+                            (a.len() as u32 + b.len() as u32).as_bytes(),
                         );
-                        rx_idx = 0;
+                        if n == b.len() {
+                            rx_buf.clear();
+                        } else {
+                            // Could not write all `b` data, pop only `n` bytes.
+                            for _ in 0..n {
+                                rx_buf.pop_front();
+                            }
+                        }
                     }
                 }
                 _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
             }
         }
+        sys_irq_control(notifications::UART_IRQ_MASK, true);
     }
 }
 

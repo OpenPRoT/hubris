@@ -13,6 +13,7 @@ nb = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+heapless = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
