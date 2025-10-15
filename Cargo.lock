@@ -1084,21 +1084,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-ast1060-uart-bak"
-version = "0.1.0"
-dependencies = [
- "aspeed-ddk",
- "ast1060-pac",
- "build-util",
- "cortex-m",
- "embedded-hal 0.2.6",
- "num-traits",
- "userlib",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
-]
-
-[[package]]
 name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
@@ -3775,7 +3760,9 @@ version = "0.1.0"
 dependencies = [
  "aspeed-ddk",
  "ast1060-pac",
+ "bitflags 2.9.1",
  "embedded-hal 0.2.6",
+ "embedded-io",
  "nb 1.1.0",
  "unwrap-lite",
 ]
