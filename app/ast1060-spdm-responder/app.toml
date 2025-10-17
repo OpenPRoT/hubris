@@ -6,7 +6,7 @@ stacksize = 1024
 
 [kernel]
 name = "ast1060-spdm-responder"
-requires = {flash = 32000, ram = 8192}
+requires = {flash = 64000, ram = 8192}
 
 [tasks.jefe]
 name = "task-jefe"
@@ -37,9 +37,9 @@ interrupts = {"uart.irq" = "uart-irq"}
 [tasks.spdm_responder]
 name = "spdm-resp"
 priority = 3
-max-sizes = {flash = 32768, ram = 32768}
+max-sizes = {flash = 158720, ram = 32768}
 start = true
-stacksize = 20480
+stacksize = 24480
 task-slots = ["mctp_server", "digest_server", "rng_driver"]
 
 [tasks.digest_server]
