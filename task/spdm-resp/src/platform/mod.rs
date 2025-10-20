@@ -1,19 +1,19 @@
 // Platform abstraction layer for SPDM
 
-pub mod hash;
-pub mod rng;
-pub mod evidence;
-
 #[cfg(feature = "ecdsa-rust-crypto")]
 pub mod cert_store_rust_crypto;
 #[cfg(not(feature = "ecdsa-rust-crypto"))]
 pub mod cert_store_rust_stub;
+pub mod certs;
+pub mod evidence;
+pub mod hash;
+pub mod rng;
 
 #[cfg(feature = "sha2-crypto")]
 pub mod hash_sha2;
 
-pub use rng::SystemRng;
 pub use evidence::DemoEvidence;
+pub use rng::SystemRng;
 
 // Certificate store selection based on features
 #[cfg(feature = "ecdsa-rust-crypto")]
@@ -38,14 +38,13 @@ pub type PlatformCertStore = cert_store_rust_stub::DemoCertStore;
 
 // Unified constructor function that handles different parameter requirements
 pub fn create_platform_hash(
-    #[cfg(not(feature = "sha2-crypto"))]
-    digest_client: drv_digest_api::Digest
+    #[cfg(not(feature = "sha2-crypto"))] digest_client: drv_digest_api::Digest,
 ) -> PlatformHash {
     #[cfg(feature = "sha2-crypto")]
     {
         PlatformHash::new()
     }
-    
+
     #[cfg(not(feature = "sha2-crypto"))]
     {
         PlatformHash::new(digest_client)
