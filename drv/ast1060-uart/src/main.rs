@@ -209,7 +209,8 @@ fn main() -> ! {
                     } else if msginfo.lease_count == 1 {
                         let (a, b) = rx_buf.as_slices();
 
-                        let (rc, n) = sys_borrow_write(msginfo.sender, 0, 0, a);
+                        let (rc, n1) =
+                            sys_borrow_write(msginfo.sender, 0, 0, a);
                         if rc != 0 {
                             sys_reply(
                                 msginfo.sender,
@@ -219,7 +220,7 @@ fn main() -> ! {
                             continue;
                         }
 
-                        if n != a.len() {
+                        if n1 != a.len() {
                             // Could not write all `a` data, return now.
                             // (Also don't forget to pop it from the buffer.)
                             let rc = if overflow {
@@ -231,9 +232,9 @@ fn main() -> ! {
                             sys_reply(
                                 msginfo.sender,
                                 rc,
-                                (n as u32).as_bytes(),
+                                (n1 as u32).as_bytes(),
                             );
-                            for _ in 0..n {
+                            for _ in 0..n1 {
                                 rx_buf.pop_front();
                             }
                             continue;
@@ -241,7 +242,8 @@ fn main() -> ! {
 
                         // All `a` data written, try to write `b` data.
 
-                        let (rc, n) = sys_borrow_write(msginfo.sender, 0, n, b);
+                        let (rc, n2) =
+                            sys_borrow_write(msginfo.sender, 0, n1, b);
                         if rc != 0 {
                             sys_reply(
                                 msginfo.sender,
@@ -259,13 +261,13 @@ fn main() -> ! {
                         sys_reply(
                             msginfo.sender,
                             rc,
-                            (a.len() as u32 + b.len() as u32).as_bytes(),
+                            (n1 as u32 + n2 as u32).as_bytes(),
                         );
-                        if n == b.len() {
+                        if n2 == b.len() {
                             rx_buf.clear();
                         } else {
-                            // Could not write all `b` data, pop only `n` bytes.
-                            for _ in 0..n {
+                            // Could not write all `b` data, pop only n bytes.
+                            for _ in 0..(n1 + n2) {
                                 rx_buf.pop_front();
                             }
                         }
