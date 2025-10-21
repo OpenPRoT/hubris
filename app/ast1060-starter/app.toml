@@ -31,7 +31,6 @@ uses = ["uart"]
 start = true
 notifications = ["uart-irq"]
 interrupts = {"uart.irq" = "uart-irq"}
-# task-slots = ["rcc_driver"]
 
 [tasks.helloworld]
 name = "task-helloworld"
@@ -40,3 +39,4 @@ max-sizes = {flash = 8192, ram = 2048}
 uses = ["uart"]
 start = true
 task-slots = ["uart_driver"]
+notifications = ["rx-data"]

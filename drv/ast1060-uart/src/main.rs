@@ -4,61 +4,19 @@
 
 //! A driver for the AST1060 UART.
 //!
-//! # IPC protocol
-//!
-//! ## `write` (1)
-//!
-//! Sends the contents of lease #0. Returns when completed.
-//!
-//! ## `read` (2)
-//!
-//! Copies available RX data into lease #0.
-//! Returns `WouldBlock` if no data is available.
-//! When data is available, returns the number of bytes copied as a `u32`.
-//! Indicates `Overflow` if data was lost due to RX buffer overflow.
-//! Otherwise indicates `Success`.
-//!
+//! See the `ast1060_uart_api` crate for IPC API documentation.
 
 #![no_std]
 #![no_main]
 
 use ast1060_pac as device;
+use ast1060_uart_api::ipc::*;
 use core::ops::Deref;
 use embedded_hal::serial::{Read, Write};
 use heapless::Deque;
 use lib_ast1060_uart::{InterruptDecoding, Usart};
 use userlib::*;
 use zerocopy::IntoBytes;
-
-const RX_BUF_SIZE: usize = 128;
-
-#[repr(u16)]
-pub enum OpCode {
-    Write = 1,
-    Read = 2,
-}
-
-impl TryFrom<u32> for OpCode {
-    type Error = ();
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(OpCode::Write),
-            2 => Ok(OpCode::Read),
-            _ => Err(()),
-        }
-    }
-}
-
-#[repr(u32)]
-pub enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
-    BadArg = 2,
-    Busy = 3,
-    WouldBlock = 4,
-    Overflow = 5,
-}
 
 struct Transmit {
     task: TaskId,

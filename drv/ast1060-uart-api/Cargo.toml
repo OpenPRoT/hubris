@@ -1,0 +1,21 @@
+[package]
+name = "ast1060-uart-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+nb.workspace = true
+embedded-hal.workspace = true
+embedded-io.workspace = true
+
+userlib = { path = "../../sys/userlib" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

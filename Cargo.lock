@@ -218,6 +218,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-uart-api"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal 0.2.6",
+ "embedded-io",
+ "nb 1.1.0",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1071,6 +1083,7 @@ dependencies = [
  "anyhow",
  "aspeed-ddk",
  "ast1060-pac",
+ "ast1060-uart-api",
  "build-util",
  "cortex-m",
  "embedded-hal 0.2.6",
@@ -5772,6 +5785,12 @@ dependencies = [
 name = "task-helloworld"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "ast1060-uart-api",
+ "build-util",
+ "embedded-io",
+ "nb 1.1.0",
+ "serde",
  "userlib",
  "zerocopy 0.8.27",
 ]
