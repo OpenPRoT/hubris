@@ -30,16 +30,23 @@ use crate::ipc::ResponseCode;
 ///
 /// ## `enable_rx_notification` (3)
 ///
-/// _TODO_
+/// Enables a notification to be sent to the caller's task when data is available to read.
+/// Takes a single byte payload: the notification bit to use.
 ///
+/// ## `disable_rx_notification` (4)
+///
+/// Disables RX notifications for the caller's task.
 pub mod ipc {
     use userlib::*;
+
     pub const RX_BUF_SIZE: usize = 128;
 
     #[repr(u16)]
     pub enum OpCode {
         Write = 1,
         Read = 2,
+        EnableRxNotification = 3,
+        DisableRxNotification = 4,
     }
 
     impl TryFrom<u32> for OpCode {
@@ -49,6 +56,8 @@ pub mod ipc {
             match value {
                 1 => Ok(OpCode::Write),
                 2 => Ok(OpCode::Read),
+                3 => Ok(OpCode::EnableRxNotification),
+                4 => Ok(OpCode::DisableRxNotification),
                 _ => Err(()),
             }
         }
@@ -144,6 +153,45 @@ impl Uart {
     }
     pub unsafe fn steal(task_id: TaskId) -> Self {
         Uart { task_id }
+    }
+    pub fn enable_rx_notification(
+        &mut self,
+        notification_bit: u8,
+    ) -> Result<(), UartError> {
+        let (code, _) = sys_send(
+            self.task_id,
+            ipc::OpCode::EnableRxNotification as u16,
+            &[notification_bit],
+            &mut [],
+            &[],
+        );
+        let code = code.try_into().unwrap_lite();
+        match code {
+            ResponseCode::Success => Ok(()),
+            ResponseCode::ServerDeath => {
+                self.task_id = sys_refresh_task_id(self.task_id);
+                Err(UartError::ServerDeath)
+            }
+            x => Err(UartError::try_from(x).unwrap_lite()),
+        }
+    }
+    pub fn disable_rx_notification(&mut self) -> Result<(), UartError> {
+        let (code, _) = sys_send(
+            self.task_id,
+            ipc::OpCode::DisableRxNotification as u16,
+            &[],
+            &mut [],
+            &[],
+        );
+        let code = code.try_into().unwrap_lite();
+        match code {
+            ResponseCode::Success => Ok(()),
+            ResponseCode::ServerDeath => {
+                self.task_id = sys_refresh_task_id(self.task_id);
+                Err(UartError::ServerDeath)
+            }
+            x => Err(UartError::try_from(x).unwrap_lite()),
+        }
     }
 }
 

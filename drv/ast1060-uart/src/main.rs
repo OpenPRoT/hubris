@@ -37,9 +37,12 @@ fn main() -> ! {
     let mut tx: Option<Transmit> = None;
     let mut rx_buf: Deque<u8, RX_BUF_SIZE> = Deque::new();
     let mut overflow = false;
+    let mut notify_rx_data: Option<(TaskId, u8)> = None;
 
     loop {
-        let msginfo = sys_recv_open(&mut [], notifications::UART_IRQ_MASK);
+        let mut recv_buf = [0; 1];
+        let msginfo =
+            sys_recv_open(&mut recv_buf, notifications::UART_IRQ_MASK);
         if msginfo.sender == TaskId::KERNEL {
             if msginfo.operation & notifications::UART_IRQ_MASK != 0 {
                 // Handling an interrupt. To allow for spurious interrupts,
@@ -65,9 +68,18 @@ fn main() -> ! {
                     }
                     InterruptDecoding::RxDataAvailable => {
                         // Receive all data available
+                        let buffer_len = rx_buf.len();
                         while let Ok(byte) = usart.read() {
                             if rx_buf.push_back(byte).is_err() {
                                 overflow = true;
+                            }
+                            if rx_buf.len() > buffer_len {
+                                if let Some((task, notification_bit)) =
+                                    notify_rx_data
+                                {
+                                    // Notify the task that data is available.
+                                    sys_post(task, 1 << notification_bit);
+                                }
                             }
                         }
                     }
@@ -78,9 +90,18 @@ fn main() -> ! {
                     InterruptDecoding::CharacterTimeout => {
                         // Character timeout
                         // Receive all data available
+                        let buffer_len = rx_buf.len();
                         while let Ok(byte) = usart.read() {
                             if rx_buf.push_back(byte).is_err() {
                                 overflow = true;
+                            }
+                        }
+                        if rx_buf.len() > buffer_len {
+                            if let Some((task, notification_bit)) =
+                                notify_rx_data
+                            {
+                                // Notify the task that data is available.
+                                sys_post(task, 1 << notification_bit);
                             }
                         }
                     }
@@ -230,6 +251,22 @@ fn main() -> ! {
                             }
                         }
                     }
+                }
+                Ok(OpCode::EnableRxNotification) => {
+                    notify_rx_data = Some((msginfo.sender, recv_buf[0]));
+                    sys_reply(
+                        msginfo.sender,
+                        ResponseCode::Success as u32,
+                        &[],
+                    );
+                }
+                Ok(OpCode::DisableRxNotification) => {
+                    notify_rx_data = None;
+                    sys_reply(
+                        msginfo.sender,
+                        ResponseCode::Success as u32,
+                        &[],
+                    );
                 }
                 _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
             }

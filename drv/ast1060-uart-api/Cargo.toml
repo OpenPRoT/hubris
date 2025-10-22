@@ -9,6 +9,7 @@ zerocopy-derive.workspace = true
 nb.workspace = true
 embedded-hal.workspace = true
 embedded-io.workspace = true
+hubpack.workspace = true
 
 userlib = { path = "../../sys/userlib" }
 
