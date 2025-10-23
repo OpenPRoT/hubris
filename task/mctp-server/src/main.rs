@@ -34,7 +34,7 @@ fn main() -> ! {
     let mut serial_reader = mctp_stack::serial::MctpSerialHandler::new();
 
     let mut server: Server<_, MAX_OUTSTANDING> =
-        Server::new(mctp::Eid(42), 0, serial_sender);
+        Server::new(mctp::Eid(8), 0, serial_sender);
     let state = sys_get_timer();
     server.update(state.now);
 

@@ -292,7 +292,7 @@ use platform::{create_platform_hash, DemoCertStore, DemoEvidence, SystemRng};
 const SPDM_MSG_TYPE: MsgType = MsgType(5);
 
 // SPDM responder endpoint ID - should be configurable
-const SPDM_RESPONDER_EID: Eid = Eid(42);
+const SPDM_RESPONDER_EID: Eid = Eid(8);
 
 // Buffer size for SPDM messages (can be large due to certificates)
 const SPDM_BUFFER_SIZE: usize = 4096;
