@@ -32,6 +32,7 @@ start = true
 stacksize = 12288
 notifications = ["uart-irq", "timer"]
 interrupts = {"uart.irq" = "uart-irq"}
+uses = ["uart"]
 
 # SPDM Responder Task - processes SPDM messages over MCTP
 [tasks.spdm_responder]
