@@ -113,7 +113,7 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
         let data = _resp
             .message_data()
             .map_err(|_| TransportError::SendError)?;
-        
+
         resp_channel
             .send(data)
             .map_err(|_| TransportError::SendError)?;
@@ -261,9 +261,15 @@ fn main() -> ! {
         Err(e) => panic!("Failed to create SPDM listener: {:?}", e),
     };
 
+    // MCTP receive buffer: Used by the transport layer to temporarily store
+    // incoming MCTP messages from the UART before they're copied into the
+    // SPDM MessageBuf for processing. This buffer is owned by the transport
+    // and is separate from the SPDM processing buffer to avoid borrowing
+    // conflicts. Size is 4KB to accommodate large SPDM messages containing
+    // X.509 certificates.
     let mut recv_buffer = [0u8; SPDM_BUFFER_SIZE];
 
-    // Create transport
+    // Create transport that bridges MCTP listener to SPDM protocol stack
     let mut transport =
         MctpSpdmTransport::new(&mctp_stack, listener, &mut recv_buffer);
 
@@ -271,7 +277,8 @@ fn main() -> ! {
     #[cfg(not(feature = "sha2-crypto"))]
     {
         task_slot!(DIGEST_SERVER, digest_server);
-        let digest_client = drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
+        let digest_client =
+            drv_digest_api::Digest::from(DIGEST_SERVER.get_task_id());
     }
 
     // Create RNG client for random number generation
@@ -285,7 +292,7 @@ fn main() -> ! {
     let mut m1_hash = create_platform_hash();
     #[cfg(feature = "sha2-crypto")]
     let mut l1_hash = create_platform_hash();
-    
+
     #[cfg(not(feature = "sha2-crypto"))]
     let mut hash = create_platform_hash(digest_client.clone());
     #[cfg(not(feature = "sha2-crypto"))]
@@ -317,7 +324,10 @@ fn main() -> ! {
         Err(_) => panic!("Failed to create SPDM context"),
     };
 
-    // Buffer for message processing
+    // SPDM message processing buffer: Separate from the MCTP receive buffer,
+    // this is used by the SPDM library to parse, validate, and construct
+    // protocol messages. The two-buffer design prevents mutable borrow
+    // conflicts while data flows: MCTP recv_buffer -> SPDM message_buffer.
     let mut message_buffer = [0u8; SPDM_BUFFER_SIZE];
     let mut msg_buf = MessageBuf::new(&mut message_buffer);
 
