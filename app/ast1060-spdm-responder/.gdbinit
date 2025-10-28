@@ -1,6 +1,6 @@
 # GDB initialization for SPDM Responder debugging
 # Load SPDM-specific ringbuf debugging commands
-source spdm_debug.py
+source app/ast1060-spdm-responder/spdm_debug.py
 
 # Useful GDB settings for embedded debugging
 set confirm off
