@@ -22,25 +22,41 @@ class SpdmRingbufCommand(gdb.Command):
     def dump_spdm_ringbuf(self):
         """Dump the SPDM trace ringbuf with proper enum decoding"""
         try:
-            # Find the SPDM ringbuf symbol - we know it's spdm_resp::__RINGBUF
+            # Find the SPDM ringbuf symbol - it's a StaticCell wrapper
             try:
-                ringbuf_symbol = gdb.lookup_global_symbol("spdm_resp::__RINGBUF")
-                if not ringbuf_symbol:
-                    print("spdm_resp::__RINGBUF symbol not found. Make sure the SPDM responder is loaded.")
-                    return
-                print(f"Found ringbuf symbol: spdm_resp::__RINGBUF")
+                # The symbol is at 0x0006e000 and contains a StaticCell
+                # We need to access the inner ringbuf structure
+                staticcell_addr = gdb.parse_and_eval("&spdm_resp::__RINGBUF")
+                print(f"Found StaticCell at address: {staticcell_addr}")
+                
+                # StaticCell contains the actual ringbuf data
+                # Try to access the inner data directly
+                ringbuf_addr = staticcell_addr
+                print(f"Accessing ringbuf data at: {ringbuf_addr}")
             except Exception as e:
                 print(f"Error looking up spdm_resp::__RINGBUF: {e}")
+                print("Make sure the SPDM responder is loaded and symbols are available.")
                 return
             
-            ringbuf_addr = ringbuf_symbol.value().address
-            print(f"Found SPDM ringbuf at address: {ringbuf_addr}")
-            
             # Read ringbuf structure
-            # For Hubris ringbuf, the structure is typically:
-            # struct { next: u16, data: [T; N] }
-            next_idx = int(gdb.parse_and_eval(f"*(unsigned short*){ringbuf_addr}"))
-            data_start = ringbuf_addr + 2  # After next index (u16)
+            # For Hubris ringbuf: struct { next: u16, data: [T; N] }
+            # The StaticCell may add some wrapper, so let's try different offsets
+            try:
+                # Try reading next index at different potential offsets
+                next_idx = int(gdb.parse_and_eval(f"*(unsigned short*){ringbuf_addr}"))
+                data_start = ringbuf_addr + 2  # After next index (u16)
+                print(f"Method 1: next_idx = {next_idx}")
+            except:
+                try:
+                    # Maybe there's padding or the StaticCell adds offset
+                    next_idx = int(gdb.parse_and_eval(f"*(unsigned short*)({ringbuf_addr} + 8)"))
+                    data_start = ringbuf_addr + 10
+                    print(f"Method 2: next_idx = {next_idx}")
+                except:
+                    # Fallback: assume it starts right at the address
+                    next_idx = int(gdb.parse_and_eval(f"*(unsigned short*)({ringbuf_addr})"))
+                    data_start = ringbuf_addr + 2
+                    print(f"Fallback: next_idx = {next_idx}")
             
             print(f"SPDM Trace Buffer (32 entries, next index: {next_idx}):")
             print("=" * 60)
