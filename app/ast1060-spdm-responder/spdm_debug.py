@@ -100,7 +100,22 @@ class SpdmRingbufCommand(gdb.Command):
                     # Read the discriminant (first byte of enum) using memory examination
                     disc_cmd = f"x/1ub {entry_addr}"
                     disc_result = gdb.execute(disc_cmd, to_string=True)
-                    discriminant = int(disc_result.split()[1], 0)
+                    
+                    # Parse GDB output more robustly
+                    # Handle both "0x1234: 42" and "0x1234 <symbol+offset>: 42" formats
+                    parts = disc_result.strip().split()
+                    # Find the actual value after the colon
+                    value_part = None
+                    for part in parts:
+                        if part.isdigit() or (part.startswith('0x') and all(c in '0123456789abcdefABCDEF' for c in part[2:])):
+                            value_part = part
+                            break
+                    
+                    if value_part is None:
+                        # If we can't find a clean number, try the last part
+                        value_part = parts[-1]
+                    
+                    discriminant = int(value_part, 0)
                     entry_str = self.decode_spdm_trace(discriminant, entry_addr)
                     
                     # Mark current position
@@ -154,7 +169,10 @@ class SpdmRingbufCommand(gdb.Command):
             try:
                 param_cmd = f"x/1ub {addr + 4}"
                 param_result = gdb.execute(param_cmd, to_string=True)
-                param = int(param_result.split()[1], 0)
+                # Extract value more robustly
+                parts = param_result.strip().split()
+                param_value = next((p for p in parts if p.isdigit() or (p.startswith('0x') and len(p) > 2)), parts[-1])
+                param = int(param_value, 0)
                 return f"EidSet({param})"
             except:
                 return f"EidSet(?)"
@@ -163,7 +181,9 @@ class SpdmRingbufCommand(gdb.Command):
             try:
                 param_cmd = f"x/1ud {addr + 8}"  # usize = 4 bytes on ARM
                 param_result = gdb.execute(param_cmd, to_string=True)
-                param = int(param_result.split()[1], 0)
+                parts = param_result.strip().split()
+                param_value = next((p for p in parts if p.isdigit() or (p.startswith('0x') and len(p) > 2)), parts[-1])
+                param = int(param_value, 0)
                 return f"MessageReceived({param})"
             except:
                 return f"MessageReceived(?)"
@@ -172,7 +192,9 @@ class SpdmRingbufCommand(gdb.Command):
             try:
                 error_cmd = f"x/1ud {addr + 4}"
                 error_result = gdb.execute(error_cmd, to_string=True)
-                error_code = int(error_result.split()[1], 0)
+                parts = error_result.strip().split()
+                error_value = next((p for p in parts if p.isdigit() or (p.startswith('0x') and len(p) > 2)), parts[-1])
+                error_code = int(error_value, 0)
                 error_names = {
                     1: "InternalError",
                     2: "NoSpace", 
