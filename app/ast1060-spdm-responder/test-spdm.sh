@@ -30,7 +30,7 @@ sudo modprobe mctp-serial
 
 # Load the SPDM responder image into qemu and connect the serial to a chardev (symlinked to ttyS1)
 echo "Loading SPDM responder firmware into QEMU..."
-qemu-system-arm -M ast1030-evb -nographic -chardev pty,id=char0,path=ttyS1 -serial chardev:char0 -kernel "$FIRMWARE_PATH" &
+qemu-system-arm -M ast1030-evb -nographic -s -chardev pty,id=char0,path=ttyS1 -serial chardev:char0 -kernel "$FIRMWARE_PATH" &
 sleep 2
 
 echo -e '\n\nSetting up MCTP serial link for SPDM...'
