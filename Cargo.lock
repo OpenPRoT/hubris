@@ -3322,6 +3322,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-i2c-server"
+version = "0.1.0"
+dependencies = [
+ "heapless 0.7.17",
+ "zerocopy 0.7.32",
+]
+
+[[package]]
+name = "generic-i2c-server-copy"
+version = "0.1.0"
+dependencies = [
+ "heapless 0.7.17",
+ "zerocopy 0.7.32",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5532,6 +5548,7 @@ dependencies = [
  "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "p384",
+ "ringbuf",
  "sha2",
  "spdm-lib",
  "userlib",
@@ -6801,6 +6818,14 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "test-spdm-request"
+version = "0.1.0"
+dependencies = [
+ "mctp 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mctp-linux",
 ]
 
 [[package]]
