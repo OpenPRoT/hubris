@@ -19,7 +19,7 @@ tmux select-layout -t spdm-test:testing tiled
 tmux send-keys -t spdm-test:testing.0 'cd app/ast1060-spdm-responder && echo "Pane 0: SPDM Responder (run ./test-spdm.sh)"' Enter
 tmux send-keys -t spdm-test:testing.1 'echo "Pane 1: MCTP Monitor (run: sudo mctp monitor)"' Enter  
 tmux send-keys -t spdm-test:testing.2 'cd app/ast1060-spdm-responder && echo "Pane 2: Test Client (run: sudo ../../target/debug/test-spdm-request)"' Enter
-tmux send-keys -t spdm-test:testing.3 'cd app/ast1060-spdm-responder && echo "Pane 3: GDB Debug (run: arm-none-eabi-gdb ../../target/ast1060-spdm-responder/dist/default/final.elf)"' Enter
+tmux send-keys -t spdm-test:testing.3 'echo "Pane 3: GDB Debug (run: ../../run-gdb.sh ast1060-spdm-responder)"' Enter
 
 # Select first pane
 tmux select-pane -t spdm-test:testing.0
