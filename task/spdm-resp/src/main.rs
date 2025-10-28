@@ -11,7 +11,6 @@
 #![no_std]
 #![no_main]
 
-use mctp::ReqChannel;
 use mctp::RespChannel;
 use mctp::{Eid, Listener, MsgType};
 use mctp_api::Stack;
@@ -29,6 +28,52 @@ use spdm_lib::protocol::algorithms::{
 use spdm_lib::protocol::version::SpdmVersion;
 use spdm_lib::protocol::{CapabilityFlags, DeviceCapabilities};
 use userlib::*;
+use ringbuf::*;
+
+/// SPDM Responder trace events for debugging
+/// 
+/// Embedded-friendly design:
+/// - Minimal debug strings (saves flash memory)
+/// - Error codes instead of full error structs for Copy/Clone compatibility
+/// - Compact enum variants to minimize memory usage
+/// 
+/// Error Code Reference:
+/// - IpcErrorMctpRecv(code): MCTP listener.recv() failed 
+///   (1=InternalError, 2=NoSpace, 3=AddrInUse, 4=TimedOut, 5=BadArgument, 99=Unknown)
+/// - IpcErrorNoRespChannel: No response channel available for send
+/// - IpcErrorMessageBuf: MessageBuf.message_data() failed
+/// - IpcErrorMctpSend: MCTP response channel send() failed
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum SpdmTrace {
+    None,
+    TaskStart,
+    MctpStackCreated,
+    EidSet(u8),
+    EidSetFailed,
+    ListenerCreated,
+    ListenerFailed,
+    TransportCreated,
+    SpdmContextCreated,
+    SpdmContextFailed,
+    MessageLoopStart,
+    WaitingForMessage,
+    MessageReceived(usize),
+    MessageProcessed,
+    MessageProcessFailed,
+    ResponseSent,
+    // IPC errors - capture error discriminant for debugging
+    IpcErrorMctpRecv(u32),
+    IpcErrorNoRespChannel,
+    IpcErrorMessageBuf,
+    IpcErrorMctpSend,
+    PlatformSetupComplete,
+}
+
+// Embedded-friendly ringbuf: 32 entries, no debug strings
+// Each entry is ~8-12 bytes depending on enum size
+// Total memory: ~384 bytes (much better than debug strings)
+ringbuf!(SpdmTrace, 32, SpdmTrace::None);
 
 /// MCTP-based SPDM Transport implementation
 pub struct MctpSpdmTransport<'a> {
@@ -75,12 +120,28 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
         &mut self,
         req: &mut MessageBuf<'_>,
     ) -> TransportResult<()> {
+        ringbuf_entry!(SpdmTrace::WaitingForMessage);
+        
         // Receive the next MCTP message and store the response channel
         // for later use in send_response.
-        let (msg_type, _msg_ic, msg, resp_channel) = self
+        let (_msg_type, _msg_ic, msg, resp_channel) = self
             .listener
             .recv(self.buffer)
-            .map_err(|_| TransportError::ReceiveError)?;
+            .map_err(|e| {
+                // Convert error to discriminant for ringbuf storage
+                let error_code = match e {
+                    mctp::Error::InternalError => 1,
+                    mctp::Error::NoSpace => 2,
+                    mctp::Error::AddrInUse => 3,
+                    mctp::Error::TimedOut => 4,
+                    mctp::Error::BadArgument => 5,
+                    _ => 99, // Unknown error
+                };
+                ringbuf_entry!(SpdmTrace::IpcErrorMctpRecv(error_code));
+                TransportError::ReceiveError
+            })?;
+
+        ringbuf_entry!(SpdmTrace::MessageReceived(msg.len()));
 
         // Store the response channel for later use
         self.pending_resp_channel = Some(resp_channel);
@@ -107,17 +168,27 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
         let mut resp_channel = self
             .pending_resp_channel
             .take()
-            .ok_or(TransportError::SendError)?;
+            .ok_or_else(|| {
+                ringbuf_entry!(SpdmTrace::IpcErrorNoRespChannel);
+                TransportError::SendError
+            })?;
 
         // Extract response bytes from MessageBuf and send
         let data = _resp
             .message_data()
-            .map_err(|_| TransportError::SendError)?;
+            .map_err(|_| {
+                ringbuf_entry!(SpdmTrace::IpcErrorMessageBuf);
+                TransportError::SendError
+            })?;
 
         resp_channel
             .send(data)
-            .map_err(|_| TransportError::SendError)?;
+            .map_err(|_| {
+                ringbuf_entry!(SpdmTrace::IpcErrorMctpSend);
+                TransportError::SendError
+            })?;
 
+        ringbuf_entry!(SpdmTrace::ResponseSent);
         Ok(())
     }
 
@@ -246,19 +317,29 @@ task_slot!(MCTP, mctp_server);
 /// The function never returns (task main loop). Panics will abort the task.
 #[export_name = "main"]
 fn main() -> ! {
+    ringbuf_entry!(SpdmTrace::TaskStart);
+    
     // Connect to MCTP server task
     let mctp_stack = Stack::from(MCTP.get_task_id());
+    ringbuf_entry!(SpdmTrace::MctpStackCreated);
 
     // Set our SPDM responder endpoint ID
     if let Err(e) = mctp_stack.set_eid(SPDM_RESPONDER_EID) {
-        // Log error and panic - EID setup is critical
+        ringbuf_entry!(SpdmTrace::EidSetFailed);
         panic!("Failed to set SPDM responder EID: {:?}", e);
     }
+    ringbuf_entry!(SpdmTrace::EidSet(SPDM_RESPONDER_EID.0));
 
     // Create listener for SPDM messages (Message Type 5)
     let listener = match mctp_stack.listener(SPDM_MSG_TYPE, None) {
-        Ok(l) => l,
-        Err(e) => panic!("Failed to create SPDM listener: {:?}", e),
+        Ok(l) => {
+            ringbuf_entry!(SpdmTrace::ListenerCreated);
+            l
+        },
+        Err(e) => {
+            ringbuf_entry!(SpdmTrace::ListenerFailed);
+            panic!("Failed to create SPDM listener: {:?}", e);
+        }
     };
 
     // MCTP receive buffer: Used by the transport layer to temporarily store
@@ -272,6 +353,7 @@ fn main() -> ! {
     // Create transport that bridges MCTP listener to SPDM protocol stack
     let mut transport =
         MctpSpdmTransport::new(&mctp_stack, listener, &mut recv_buffer);
+    ringbuf_entry!(SpdmTrace::TransportCreated);
 
     // Create digest client for hash operations (only when IPC is needed)
     #[cfg(not(feature = "sha2-crypto"))]
@@ -302,6 +384,7 @@ fn main() -> ! {
     let mut rng = SystemRng::new(rng_client);
     let mut cert_store = DemoCertStore::new();
     let evidence = DemoEvidence::new();
+    ringbuf_entry!(SpdmTrace::PlatformSetupComplete);
 
     // Create SPDM context
     let supported_versions = [SpdmVersion::V12, SpdmVersion::V11];
@@ -320,8 +403,14 @@ fn main() -> ! {
         &mut rng,
         &evidence,
     ) {
-        Ok(ctx) => ctx,
-        Err(_) => panic!("Failed to create SPDM context"),
+        Ok(ctx) => {
+            ringbuf_entry!(SpdmTrace::SpdmContextCreated);
+            ctx
+        },
+        Err(_) => {
+            ringbuf_entry!(SpdmTrace::SpdmContextFailed);
+            panic!("Failed to create SPDM context");
+        }
     };
 
     // SPDM message processing buffer: Separate from the MCTP receive buffer,
@@ -332,13 +421,15 @@ fn main() -> ! {
     let mut msg_buf = MessageBuf::new(&mut message_buffer);
 
     // Process SPDM messages
+    ringbuf_entry!(SpdmTrace::MessageLoopStart);
     loop {
         match spdm_context.process_message(&mut msg_buf) {
             Ok(()) => {
-                // Message processed successfully
+                ringbuf_entry!(SpdmTrace::MessageProcessed);
             }
-            Err(_) => {
-                // Handle error, perhaps continue
+            Err(_e) => {
+                ringbuf_entry!(SpdmTrace::MessageProcessFailed);
+                // Handle error, perhaps continue - don't panic in message loop
             }
         }
     }
