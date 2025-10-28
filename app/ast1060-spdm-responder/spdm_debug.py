@@ -6,6 +6,11 @@ Optimized single script for Hubris SPDM ringbuf inspection
 
 import gdb
 
+# Constants
+RINGBUF_ADDR = 0x0006e000  # Known address from info variables
+RINGBUF_ENTRIES = 32       # From ringbuf!(SpdmTrace, 32, ...)
+ENTRY_SIZE = 16           # Conservative estimate for enum size
+
 class SpdmRingbufCommand(gdb.Command):
     """Dump SPDM ringbuf entries with enum decoding"""
     
@@ -26,12 +31,28 @@ class SpdmRingbufCommand(gdb.Command):
             try:
                 # Use the known address directly since symbol lookup has issues
                 # From info variables: 0x0006e000  spdm_resp::__RINGBUF
-                ringbuf_addr = 0x0006e000
+                # Try different address formats to avoid GDB parsing issues
+                ringbuf_addr = RINGBUF_ADDR
                 print(f"Using known StaticCell address: 0x{ringbuf_addr:08x}")
                 
-                # Verify we can access this memory
-                test_read = gdb.parse_and_eval(f"*(unsigned char*)0x{ringbuf_addr:08x}")
-                print(f"Memory accessible, first byte: 0x{int(test_read):02x}")
+                # Try accessing via symbol pattern matching first
+                try:
+                    # Find any symbol matching the pattern (avoids hardcoded hash)
+                    symbols = gdb.execute("info variables spdm_resp::__RINGBUF", to_string=True)
+                    if "spdm_resp::__RINGBUF" in symbols:
+                        test_cmd = f"x/1ub {RINGBUF_ADDR}"
+                        test_result = gdb.execute(test_cmd, to_string=True)
+                        print(f"Memory accessible via address: {test_result.strip()}")
+                        ringbuf_ref = str(RINGBUF_ADDR)
+                    else:
+                        raise Exception("Symbol not found")
+                except:
+                    # Fallback to decimal address which GDB handles better
+                    ringbuf_addr_decimal = RINGBUF_ADDR  # Already decimal equivalent
+                    test_cmd = f"x/1ub {ringbuf_addr_decimal}"
+                    test_result = gdb.execute(test_cmd, to_string=True)
+                    print(f"Memory accessible via decimal: {test_result.strip()}")
+                    ringbuf_ref = str(ringbuf_addr_decimal)
             except Exception as e:
                 print(f"Error accessing memory at 0x{ringbuf_addr:08x}: {e}")
                 print("Make sure the SPDM responder is loaded and running.")
@@ -39,35 +60,47 @@ class SpdmRingbufCommand(gdb.Command):
             
             # Read ringbuf structure
             # For Hubris ringbuf: struct { next: u16, data: [T; N] }
-            # The StaticCell may add some wrapper, so let's try different offsets
+            # Use memory examination commands instead of parse_and_eval
             try:
-                # Try reading next index at different potential offsets
-                next_idx = int(gdb.parse_and_eval(f"*(unsigned short*)0x{ringbuf_addr:08x}"))
-                data_start = ringbuf_addr + 2  # After next index (u16)
+                # Try reading next index (u16) at the start using the working reference
+                next_cmd = f"x/1uh {ringbuf_ref}"
+                next_result = gdb.execute(next_cmd, to_string=True)
+                # Parse the result: "0x6e000: 1234" -> extract 1234
+                next_idx = int(next_result.split()[1], 0)  # 0 means auto-detect base
+                data_start_offset = 2  # After next index (u16)
                 print(f"Method 1: next_idx = {next_idx}")
-            except:
+            except Exception as e1:
                 try:
                     # Maybe there's padding or the StaticCell adds offset
-                    next_idx = int(gdb.parse_and_eval(f"*(unsigned short*)0x{ringbuf_addr + 8:08x}"))
-                    data_start = ringbuf_addr + 10
+                    if 'ringbuf_ref' in locals() and not ringbuf_ref.isdigit():
+                        # For non-numeric reference, use base address + offset
+                        next_cmd = f"x/1uh {RINGBUF_ADDR + 8}"
+                    else:
+                        next_cmd = f"x/1uh {int(ringbuf_ref) + 8}"
+                    next_result = gdb.execute(next_cmd, to_string=True)
+                    next_idx = int(next_result.split()[1], 0)
+                    data_start_offset = 10
                     print(f"Method 2: next_idx = {next_idx}")
-                except:
-                    # Fallback: assume it starts right at the address
-                    next_idx = int(gdb.parse_and_eval(f"*(unsigned short*)0x{ringbuf_addr:08x}"))
-                    data_start = ringbuf_addr + 2
+                except Exception as e2:
+                    print(f"Could not read next_idx: {e1}, {e2}")
+                    # Continue anyway with next_idx = 0
+                    next_idx = 0
+                    data_start_offset = 2
                     print(f"Fallback: next_idx = {next_idx}")
             
-            print(f"SPDM Trace Buffer (32 entries, next index: {next_idx}):")
+            print(f"SPDM Trace Buffer ({RINGBUF_ENTRIES} entries, next index: {next_idx}):")
             print("=" * 60)
             
-            # Read all entries (assuming each enum entry is ~16 bytes max)
-            entry_size = 16  # Conservative estimate for enum size
-            for i in range(32):
-                entry_addr = data_start + (i * entry_size)
+            # Read all entries
+            base_addr = RINGBUF_ADDR
+            for i in range(RINGBUF_ENTRIES):
+                entry_addr = base_addr + data_start_offset + (i * ENTRY_SIZE)
                 
                 try:
-                    # Read the discriminant (first byte of enum)
-                    discriminant = int(gdb.parse_and_eval(f"*(unsigned char*){entry_addr}"))
+                    # Read the discriminant (first byte of enum) using memory examination
+                    disc_cmd = f"x/1ub {entry_addr}"
+                    disc_result = gdb.execute(disc_cmd, to_string=True)
+                    discriminant = int(disc_result.split()[1], 0)
                     entry_str = self.decode_spdm_trace(discriminant, entry_addr)
                     
                     # Mark current position
@@ -116,24 +149,30 @@ class SpdmRingbufCommand(gdb.Command):
         
         base_name = trace_map.get(discriminant, f"Unknown({discriminant})")
         
-        # Handle variants with data
+        # Handle variants with data using consistent memory examination
         if discriminant == 3:  # EidSet(u8)
             try:
-                param = int(gdb.parse_and_eval(f"*(unsigned char*)({addr} + 4)"))
+                param_cmd = f"x/1ub {addr + 4}"
+                param_result = gdb.execute(param_cmd, to_string=True)
+                param = int(param_result.split()[1], 0)
                 return f"EidSet({param})"
             except:
                 return f"EidSet(?)"
                 
         elif discriminant == 12:  # MessageReceived(usize) 
             try:
-                param = int(gdb.parse_and_eval(f"*(unsigned long*)({addr} + 8)"))
+                param_cmd = f"x/1ud {addr + 8}"  # usize = 4 bytes on ARM
+                param_result = gdb.execute(param_cmd, to_string=True)
+                param = int(param_result.split()[1], 0)
                 return f"MessageReceived({param})"
             except:
                 return f"MessageReceived(?)"
                 
         elif discriminant == 16:  # IpcErrorMctpRecv(u32)
             try:
-                error_code = int(gdb.parse_and_eval(f"*(unsigned int*)({addr} + 4)"))
+                error_cmd = f"x/1ud {addr + 4}"
+                error_result = gdb.execute(error_cmd, to_string=True)
+                error_code = int(error_result.split()[1], 0)
                 error_names = {
                     1: "InternalError",
                     2: "NoSpace", 
