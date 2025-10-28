@@ -9,7 +9,7 @@ import gdb
 # Constants
 RINGBUF_ADDR = 0x0006e000  # Known address from info variables
 RINGBUF_ENTRIES = 32       # From ringbuf!(SpdmTrace, 32, ...)
-ENTRY_SIZE = 16           # Conservative estimate for enum size
+ENTRY_SIZE = 16           # Actual enum size based on empirical memory analysis
 
 class SpdmRingbufCommand(gdb.Command):
     """Dump SPDM ringbuf entries with enum decoding"""
@@ -20,12 +20,21 @@ class SpdmRingbufCommand(gdb.Command):
     def invoke(self, arg, from_tty):
         """Main command entry point"""
         try:
-            self.dump_spdm_ringbuf()
+            # Check if user wants to save to file
+            filename = arg.strip() if arg.strip() else None
+            self.dump_spdm_ringbuf(filename)
         except Exception as e:
             print(f"Error dumping SPDM ringbuf: {e}")
     
-    def dump_spdm_ringbuf(self):
+    def dump_spdm_ringbuf(self, filename=None):
         """Dump the SPDM trace ringbuf with proper enum decoding"""
+        output_lines = []
+        
+        def output(line):
+            """Helper to output to both console and file buffer"""
+            print(line)
+            output_lines.append(line)
+        
         try:
             # Find the SPDM ringbuf symbol - it's a StaticCell wrapper
             try:
@@ -33,7 +42,7 @@ class SpdmRingbufCommand(gdb.Command):
                 # From info variables: 0x0006e000  spdm_resp::__RINGBUF
                 # Try different address formats to avoid GDB parsing issues
                 ringbuf_addr = RINGBUF_ADDR
-                print(f"Using known StaticCell address: 0x{ringbuf_addr:08x}")
+                output(f"Using known StaticCell address: 0x{ringbuf_addr:08x}")
                 
                 # Try accessing via symbol pattern matching first
                 try:
@@ -42,7 +51,7 @@ class SpdmRingbufCommand(gdb.Command):
                     if "spdm_resp::__RINGBUF" in symbols:
                         test_cmd = f"x/1ub {RINGBUF_ADDR}"
                         test_result = gdb.execute(test_cmd, to_string=True)
-                        print(f"Memory accessible via address: {test_result.strip()}")
+                        output(f"Memory accessible via address: {test_result.strip()}")
                         ringbuf_ref = str(RINGBUF_ADDR)
                     else:
                         raise Exception("Symbol not found")
@@ -51,11 +60,11 @@ class SpdmRingbufCommand(gdb.Command):
                     ringbuf_addr_decimal = RINGBUF_ADDR  # Already decimal equivalent
                     test_cmd = f"x/1ub {ringbuf_addr_decimal}"
                     test_result = gdb.execute(test_cmd, to_string=True)
-                    print(f"Memory accessible via decimal: {test_result.strip()}")
+                    output(f"Memory accessible via decimal: {test_result.strip()}")
                     ringbuf_ref = str(ringbuf_addr_decimal)
             except Exception as e:
-                print(f"Error accessing memory at 0x{ringbuf_addr:08x}: {e}")
-                print("Make sure the SPDM responder is loaded and running.")
+                output(f"Error accessing memory at 0x{ringbuf_addr:08x}: {e}")
+                output("Make sure the SPDM responder is loaded and running.")
                 return
             
             # Read ringbuf structure
@@ -67,7 +76,7 @@ class SpdmRingbufCommand(gdb.Command):
                 next_result = gdb.execute(next_cmd, to_string=True)
                 # Parse the result: "0x6e000: 1234" -> extract 1234
                 next_idx = int(next_result.split()[1], 0)  # 0 means auto-detect base
-                data_start_offset = 2  # After next index (u16)
+                data_start_offset = 4  # After next index (u16) + padding = 4 bytes
                 print(f"Method 1: next_idx = {next_idx}")
             except Exception as e1:
                 try:
@@ -79,13 +88,13 @@ class SpdmRingbufCommand(gdb.Command):
                         next_cmd = f"x/1uh {int(ringbuf_ref) + 8}"
                     next_result = gdb.execute(next_cmd, to_string=True)
                     next_idx = int(next_result.split()[1], 0)
-                    data_start_offset = 10
+                    data_start_offset = 12  # Alternative layout
                     print(f"Method 2: next_idx = {next_idx}")
                 except Exception as e2:
                     print(f"Could not read next_idx: {e1}, {e2}")
                     # Continue anyway with next_idx = 0
                     next_idx = 0
-                    data_start_offset = 2
+                    data_start_offset = 4  # Use corrected offset
                     print(f"Fallback: next_idx = {next_idx}")
             
             print(f"SPDM Trace Buffer ({RINGBUF_ENTRIES} entries, next index: {next_idx}):")
