@@ -22,29 +22,36 @@ class SpdmRingbufCommand(gdb.Command):
     def dump_spdm_ringbuf(self):
         """Dump the SPDM trace ringbuf with proper enum decoding"""
         try:
-            # Find the ringbuf in the SPDM responder task
-            ringbuf_symbol = gdb.lookup_global_symbol("RINGBUF")
-            if not ringbuf_symbol:
-                print("RINGBUF symbol not found. Make sure the SPDM responder is loaded.")
+            # Find the SPDM ringbuf symbol - we know it's spdm_resp::__RINGBUF
+            try:
+                ringbuf_symbol = gdb.lookup_global_symbol("spdm_resp::__RINGBUF")
+                if not ringbuf_symbol:
+                    print("spdm_resp::__RINGBUF symbol not found. Make sure the SPDM responder is loaded.")
+                    return
+                print(f"Found ringbuf symbol: spdm_resp::__RINGBUF")
+            except Exception as e:
+                print(f"Error looking up spdm_resp::__RINGBUF: {e}")
                 return
             
             ringbuf_addr = ringbuf_symbol.value().address
             print(f"Found SPDM ringbuf at address: {ringbuf_addr}")
             
-            # Read ringbuf structure (based on our reverse engineering)
-            # struct { next: u16, data: [SpdmTrace; 32] }
+            # Read ringbuf structure
+            # For Hubris ringbuf, the structure is typically:
+            # struct { next: u16, data: [T; N] }
             next_idx = int(gdb.parse_and_eval(f"*(unsigned short*){ringbuf_addr}"))
-            data_start = ringbuf_addr + 2  # After next index
+            data_start = ringbuf_addr + 2  # After next index (u16)
             
             print(f"SPDM Trace Buffer (32 entries, next index: {next_idx}):")
             print("=" * 60)
             
-            # Read all entries
+            # Read all entries (assuming each enum entry is ~16 bytes max)
+            entry_size = 16  # Conservative estimate for enum size
             for i in range(32):
-                entry_addr = data_start + (i * 16)  # Assume ~16 bytes per enum
+                entry_addr = data_start + (i * entry_size)
                 
-                # Read the discriminant (first byte/word of enum)
                 try:
+                    # Read the discriminant (first byte of enum)
                     discriminant = int(gdb.parse_and_eval(f"*(unsigned char*){entry_addr}"))
                     entry_str = self.decode_spdm_trace(discriminant, entry_addr)
                     
@@ -59,7 +66,10 @@ class SpdmRingbufCommand(gdb.Command):
             
         except Exception as e:
             print(f"Failed to dump ringbuf: {e}")
-            print("Try: (gdb) info variables RINGBUF")
+            print("Debug info:")
+            print(f"  - Make sure the SPDM responder is running")
+            print(f"  - Try: (gdb) info variables __RINGBUF")
+            print(f"  - Try: (gdb) p &spdm_resp::__RINGBUF")
     
     def decode_spdm_trace(self, discriminant, addr):
         """Decode SpdmTrace enum based on discriminant value"""
