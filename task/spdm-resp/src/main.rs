@@ -56,6 +56,7 @@ enum SpdmTrace {
     TransportCreated,
     SpdmContextCreated,
     SpdmContextFailed,
+    MessageBufferCreated,
     MessageLoopStart,
     WaitingForMessage,
     MessageReceived(usize),
@@ -79,7 +80,6 @@ ringbuf!(SpdmTrace, 32, SpdmTrace::None);
 pub struct MctpSpdmTransport<'a> {
     stack: &'a mctp_api::Stack,
     listener: mctp_api::MctpListener<'a>,
-    buffer: &'a mut [u8],
     pending_resp_channel: Option<mctp_api::MctpRespChannel<'a>>,
 }
 
@@ -87,12 +87,10 @@ impl<'a> MctpSpdmTransport<'a> {
     pub fn new(
         stack: &'a mctp_api::Stack,
         listener: mctp_api::MctpListener<'a>,
-        buffer: &'a mut [u8],
     ) -> Self {
         Self {
             stack,
             listener,
-            buffer,
             pending_resp_channel: None,
         }
     }
@@ -122,11 +120,35 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
     ) -> TransportResult<()> {
         ringbuf_entry!(SpdmTrace::WaitingForMessage);
         
-        // Receive the next MCTP message and store the response channel
-        // for later use in send_response.
+        // Reset the MessageBuf to ensure clean state
+        req.reset();
+
+        // Zero-copy approach: Get MessageBuf buffer and let MCTP write directly into it
+        // 1. Get the maximum capacity
+        // 2. Pre-allocate the full capacity with put_data()
+        // 3. Get mutable access to the pre-allocated buffer
+        // 4. Pass buffer directly to MCTP recv (no copy needed!)
+        // 5. Trim to the actual received message length
+        let max_len = req.capacity();
+        
+        // Pre-allocate the full buffer capacity
+        req.put_data(max_len)
+            .map_err(|_| TransportError::ReceiveError)?;
+        
+        // Get mutable access to the pre-allocated buffer
+        let dest = req
+            .data_mut(max_len)
+            .map_err(|_| {
+                // Enhanced error logging for MessageBuf issues
+                ringbuf_entry!(SpdmTrace::IpcErrorMessageBuf);
+                TransportError::ReceiveError
+            })?;
+
+        // Receive directly into the MessageBuf buffer (zero-copy!)
+        // MCTP writes the message data directly into our buffer
         let (_msg_type, _msg_ic, msg, resp_channel) = self
             .listener
-            .recv(self.buffer)
+            .recv(dest)
             .map_err(|e| {
                 // Convert error to discriminant for ringbuf storage
                 let error_code = match e {
@@ -141,21 +163,18 @@ impl<'a> SpdmTransport for MctpSpdmTransport<'a> {
                 TransportError::ReceiveError
             })?;
 
-        ringbuf_entry!(SpdmTrace::MessageReceived(msg.len()));
+        let msg_len = msg.len();
+        ringbuf_entry!(SpdmTrace::MessageReceived(msg_len));
 
         // Store the response channel for later use
         self.pending_resp_channel = Some(resp_channel);
+        
+        // Trim the buffer to the actual received message length
+        req.trim(msg_len)
+            .map_err(|_| TransportError::ReceiveError)?;
 
-        // Copy the received message into the provided MessageBuf.
-        // Use the MessageBuf API to obtain a mutable slice and advance the
-        // internal length. This avoids borrowing `self.buffer` twice.
-        let len = msg.len();
-        let dest = req
-            .data_mut(len)
-            .map_err(|_| TransportError::ReceiveError)?;
-        dest.copy_from_slice(&msg[..len]);
-        req.put_data(len)
-            .map_err(|_| TransportError::ReceiveError)?;
+        // Note: MCTP header validation is handled by the MCTP layer
+        // since our listener is already filtering for SPDM_MSG_TYPE
 
         Ok(())
     }
@@ -301,10 +320,9 @@ task_slot!(MCTP, mctp_server);
 ///   response.
 ///
 /// Important notes:
-/// - The transport owns a listener and a receive buffer. The SPDM stack uses
-///   a separate `MessageBuf` backed by its own buffer to avoid overlapping
-///   mutable borrows. The two buffers may be unified later (to save RAM) if
-///   care is taken to sequence borrows properly.
+/// - The transport uses a zero-copy design where MCTP writes directly into
+///   the SPDM MessageBuf, eliminating intermediate copying for better 
+///   performance and reduced memory usage.
 /// - Cryptography is performed via the platform trait implementations. The
 ///   `spdm-lib` dependency is built with `default-features = false` so it
 ///   does not pull in host/software crypto backends.
@@ -342,17 +360,9 @@ fn main() -> ! {
         }
     };
 
-    // MCTP receive buffer: Used by the transport layer to temporarily store
-    // incoming MCTP messages from the UART before they're copied into the
-    // SPDM MessageBuf for processing. This buffer is owned by the transport
-    // and is separate from the SPDM processing buffer to avoid borrowing
-    // conflicts. Size is 4KB to accommodate large SPDM messages containing
-    // X.509 certificates.
-    let mut recv_buffer = [0u8; SPDM_BUFFER_SIZE];
-
     // Create transport that bridges MCTP listener to SPDM protocol stack
     let mut transport =
-        MctpSpdmTransport::new(&mctp_stack, listener, &mut recv_buffer);
+        MctpSpdmTransport::new(&mctp_stack, listener);
     ringbuf_entry!(SpdmTrace::TransportCreated);
 
     // Create digest client for hash operations (only when IPC is needed)
@@ -413,23 +423,25 @@ fn main() -> ! {
         }
     };
 
-    // SPDM message processing buffer: Separate from the MCTP receive buffer,
-    // this is used by the SPDM library to parse, validate, and construct
-    // protocol messages. The two-buffer design prevents mutable borrow
-    // conflicts while data flows: MCTP recv_buffer -> SPDM message_buffer.
+    // SPDM message processing buffer: Used by the SPDM library to parse, 
+    // validate, and construct protocol messages. The zero-copy design allows
+    // MCTP to write directly into this buffer, eliminating intermediate copies.
     let mut message_buffer = [0u8; SPDM_BUFFER_SIZE];
     let mut msg_buf = MessageBuf::new(&mut message_buffer);
+    
+    // Log MessageBuf creation for debugging
+    ringbuf_entry!(SpdmTrace::MessageBufferCreated);
 
     // Process SPDM messages
     ringbuf_entry!(SpdmTrace::MessageLoopStart);
-    loop {
+    loop {        
         match spdm_context.process_message(&mut msg_buf) {
             Ok(()) => {
                 ringbuf_entry!(SpdmTrace::MessageProcessed);
             }
             Err(_e) => {
                 ringbuf_entry!(SpdmTrace::MessageProcessFailed);
-                // Handle error, perhaps continue - don't panic in message loop
+                // Continue processing even after errors to maintain service availability
             }
         }
     }
