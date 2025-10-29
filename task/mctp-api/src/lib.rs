@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! ## High-level interface
 //! Applications can use the [`Stack`] to configure the hubris mctp-server-task,
 //! or to obtain [listener](MctpListener), [request](MctpReqChannel) and [response](MctpRespChannel) handles that implement
