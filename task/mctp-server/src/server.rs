@@ -153,12 +153,12 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
             tag.map(|x| Tag::Owned(TagValue(x)))
         };
         let res = self.stack.send(
-            eid.map(|id| Eid(id)),
+            eid.map(Eid),
             MsgType(typ),
             tag,
             MsgIC(ic),
             AppCookie(handle.unwrap_or(GenericHandle(255)).0 as usize), // Responses need no handle, use 255 as dummy
-            &msg_buf,
+            msg_buf,
         );
 
         match res {
@@ -220,10 +220,7 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
         }
 
         // Else set the timer and return the deadline
-        return set_timer_relative(
-            timeout_millis,
-            super::notifications::TIMER_MASK,
-        );
+        set_timer_relative(timeout_millis, super::notifications::TIMER_MASK)
     }
 
     /// Unbind a handle previously allocated by `req` or `listener`

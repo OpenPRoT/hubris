@@ -5,7 +5,6 @@
 use core::{cell::RefCell, ops::DerefMut};
 use embedded_io::Write;
 use mctp::Result;
-use mctp_stack;
 use userlib::*;
 
 use super::notifications;

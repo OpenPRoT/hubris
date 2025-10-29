@@ -8,7 +8,6 @@
 use ast1060_pac as device;
 use core::cell::RefCell;
 use core::ops::Deref;
-use mctp_stack;
 use userlib::*;
 
 use lib_ast1060_uart::Usart;
