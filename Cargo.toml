@@ -167,10 +167,16 @@ tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = 
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
-# OpenPRot
-openprot-platform-mock = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
-openprot-hal-blocking = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
-openprot-hal-nb = { git = "https://github.com/rusty1968/openprot.git", branch = "i2c-hardware" }
+embedded-hal-1 = { package = "embedded-hal", version = "1.0", default-features = false }
+
+
+## OpenPRot Initiative
+openprot-hal-blocking = { git = "https://github.com/openprot/openprot.git" }
+openprot-platform-mock = { git = "https://github.com/openprot/openprot.git"  }
+openprot-platform-rustcrypto = { git = "https://github.com/openprot/openprot.git" , package = "platform-rustcrypto-impl" }
+openprot-platform-traits-hubris = { git = "https://github.com/openprot/openprot.git" }
+proposed-traits = { git = "https://github.com/rusty1968/proposed_traits.git", package = "proposed-traits", rev = "85641310df5a5276c67f81621b104322cff0286c" }
+
 
 [patch.crates-io]
 # See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2

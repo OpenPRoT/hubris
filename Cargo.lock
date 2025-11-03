@@ -20,6 +20,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
+name = "aead"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
+dependencies = [
+ "crypto-common",
+ "generic-array",
+]
+
+[[package]]
+name = "aes"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures",
+]
+
+[[package]]
+name = "aes-gcm"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
+dependencies = [
+ "aead",
+ "aes",
+ "cipher",
+ "ctr",
+ "ghash",
+ "subtle",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,11 +205,21 @@ dependencies = [
  "heapless 0.8.0",
  "hex-literal",
  "nb 1.1.0",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/OpenPRoT/openprot)",
+ "openprot-hal-blocking",
  "panic-halt 1.0.0",
  "paste",
  "proposed-traits",
  "zerocopy 0.8.27",
+]
+
+[[package]]
+name = "ast1060-digest-test"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
 ]
 
 [[package]]
@@ -881,6 +926,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctr"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "ctrlc"
 version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1078,6 +1132,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "digest-server"
+version = "0.1.0"
+dependencies = [
+ "aspeed-ddk",
+ "ast1060-pac",
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-digest-api",
+ "embedded-hal 1.0.0",
+ "heapless 0.7.17",
+ "idol",
+ "idol-runtime",
+ "num-derive 0.4.2",
+ "num-traits",
+ "openprot-hal-blocking",
+ "openprot-platform-mock",
+ "openprot-platform-traits-hubris",
+ "platform-rustcrypto-impl",
+ "proposed-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "drv-ast1060-uart"
 version = "0.1.0"
 dependencies = [
@@ -1234,6 +1314,20 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-cpu-power-state",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "drv-digest-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1486,7 +1580,7 @@ dependencies = [
  "hubpack",
  "num-derive 0.4.2",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
+ "openprot-hal-blocking",
  "openprot-platform-mock",
  "serde",
  "serde-big-array 0.4.1",
@@ -2089,7 +2183,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
+ "openprot-hal-blocking",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -3008,6 +3102,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 
 [[package]]
+name = "embedded-hal-async"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c4c685bbef7fe13c3c6dd4da26841ed3980ef33e841cddfa15ce8a8fb3f1884"
+dependencies = [
+ "embedded-hal 1.0.0",
+]
+
+[[package]]
+name = "embedded-hal-nb"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fba4268c14288c828995299e59b12babdbe170f6c6d73731af1b4648142e8605"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "nb 1.1.0",
+]
+
+[[package]]
 name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3262,6 +3375,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0d8a4362ccb29cb0b265253fb0a2728f592895ee6854fd9bc13f2ffda266ff1"
+dependencies = [
+ "opaque-debug",
+ "polyval",
+]
+
+[[package]]
 name = "gimlet"
 version = "0.1.0"
 dependencies = [
@@ -3394,6 +3517,16 @@ name = "heapless"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
+dependencies = [
+ "hash32 0.3.1",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1edcd5a338e64688fbdcb7531a846cfd3476a54784dcb918a0844682bc7ada5"
 dependencies = [
  "hash32 0.3.1",
  "stable_deref_trait",
@@ -3701,6 +3834,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "406cda4b368d531c842222cf9d2600a9a4acce8d29423695379c6868a143a9ee"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "k256"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cadb76004ed8e97623117f3df85b17aaa6626ab0b0831e6573f104df16cd1bcc"
+dependencies = [
+ "cfg-if",
+ "ecdsa",
+ "elliptic-curve",
+ "sha2",
 ]
 
 [[package]]
@@ -4345,9 +4490,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
+name = "openprot-hal-async"
+version = "0.1.0"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
+dependencies = [
+ "embedded-hal-async",
+]
+
+[[package]]
 name = "openprot-hal-blocking"
 version = "0.1.0"
-source = "git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware#54105b4e797c77b56cf1e25a62169c9e89f342e9"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
 dependencies = [
  "embedded-hal 1.0.0",
  "rand_core 0.9.3",
@@ -4357,25 +4516,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "openprot-hal-blocking"
+name = "openprot-hal-nb"
 version = "0.1.0"
-source = "git+https://github.com/OpenPRoT/openprot#2c2a8760a5b22ab25c9bc867799d488fa3033688"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
 dependencies = [
  "embedded-hal 1.0.0",
- "rand_core 0.9.3",
- "subtle",
- "zerocopy 0.8.27",
- "zeroize",
+ "embedded-hal-nb",
+ "nb 1.1.0",
+ "openprot-hal-blocking",
 ]
 
 [[package]]
 name = "openprot-platform-mock"
 version = "0.1.0"
-source = "git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware#54105b4e797c77b56cf1e25a62169c9e89f342e9"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
 dependencies = [
  "cortex-m",
  "embedded-hal 1.0.0",
- "openprot-hal-blocking 0.1.0 (git+https://github.com/rusty1968/openprot.git?branch=i2c-hardware)",
+ "openprot-hal-blocking",
+]
+
+[[package]]
+name = "openprot-platform-traits-hubris"
+version = "0.1.0"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
+dependencies = [
+ "openprot-hal-async",
+ "openprot-hal-blocking",
+ "openprot-hal-nb",
 ]
 
 [[package]]
@@ -4597,6 +4765,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "platform-rustcrypto-impl"
+version = "0.1.0"
+source = "git+https://github.com/openprot/openprot.git#03bbbdb9239f2b7212ca5e451c7bceea3d0f251a"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "cipher",
+ "ctr",
+ "heapless 0.9.1",
+ "hmac",
+ "k256",
+ "openprot-hal-blocking",
+ "openprot-platform-traits-hubris",
+ "p256",
+ "p384",
+ "rand_core 0.9.3",
+ "sha2",
+ "sha3",
+ "zerocopy 0.8.27",
+ "zeroize",
+]
+
+[[package]]
 name = "pmbus"
 version = "0.1.7"
 source = "git+https://github.com/oxidecomputer/pmbus#314a33ddbff77a3a8960864a4ffae42c9fe53bee"
@@ -4609,6 +4800,18 @@ dependencies = [
  "ron",
  "serde",
  "serde_with 1.11.0",
+]
+
+[[package]]
+name = "polyval"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d1fe60d06143b2430aa532c94cfe9e29783047f06c0d7fd359a9a51b729fa25"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "opaque-debug",
+ "universal-hash",
 ]
 
 [[package]]
@@ -5831,6 +6034,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-hmac-client"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-digest-api",
+ "hmac",
+ "idol-runtime",
+ "ringbuf",
+ "sha2",
+ "userlib",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "task-host-sp-comms"
 version = "0.1.0"
 dependencies = [
@@ -6857,6 +7076,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
+name = "universal-hash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
+dependencies = [
+ "crypto-common",
+ "subtle",
+]
+
+[[package]]
 name = "unwrap-lite"
 version = "0.1.0"
 
@@ -7432,9 +7661,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.7.0"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
+checksum = "b97154e67e32c85465826e8bcc1c59429aaaf107c1e4a9e53c8d8ccd5eff88d0"
 dependencies = [
  "zeroize_derive",
 ]

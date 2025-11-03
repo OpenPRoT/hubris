@@ -1,13 +1,13 @@
 [[flash]]
 address = 0x00000000
-size = 65536
+size = 393216
 read = true
 write = true
 execute = true
 
 [[ram]]
-address = 0x20000
-size = 65536
+address = 0x60000
+size = 131072
 read = true
 write = true
 execute = true
