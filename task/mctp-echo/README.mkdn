@@ -1,0 +1,5 @@
+# A demo task that echoes MCTP messages.
+
+The task configures the MCTP server for EID 8
+and starts listening for MCTP Message Type `1` (PLDM) packets.
+Received messages are echoed as is through the response channel.

@@ -198,6 +198,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-mctp-echo"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+]
+
+[[package]]
 name = "ast1060-pac"
 version = "0.1.0"
 source = "git+https://github.com/aspeedtech-bmc/ast1060-pac.git#35ce8190e9b40deff918300b69d23079ca15a3f4"
@@ -818,9 +828,9 @@ dependencies = [
 
 [[package]]
 name = "crc"
-version = "3.0.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
+checksum = "9710d3b3739c2e349eb44fe848ad0b7c8cb1e42bd87ee49371df2f7acaf3e675"
 dependencies = [
  "crc-catalog",
 ]
@@ -833,9 +843,9 @@ checksum = "774646b687f63643eb0f4bf13dc263cb581c8c9e57973b6ddf78bda3994d88df"
 
 [[package]]
 name = "crc-catalog"
-version = "2.1.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
+checksum = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5"
 
 [[package]]
 name = "crc32fast"
@@ -4043,6 +4053,103 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
+name = "mctp"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8280034c4afaa377d825c17261987ff26a638369ea4b46919e1726741eec253"
+
+[[package]]
+name = "mctp"
+version = "0.2.0"
+source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#23fc33abf98c87bfa3f21967df312a99e21224e2"
+
+[[package]]
+name = "mctp-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "lib-ast1060-uart",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "mctp-echo"
+version = "0.1.0"
+dependencies = [
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp-api",
+ "userlib",
+]
+
+[[package]]
+name = "mctp-estack"
+version = "0.1.0"
+source = "git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features#23fc33abf98c87bfa3f21967df312a99e21224e2"
+dependencies = [
+ "crc",
+ "embedded-io",
+ "heapless 0.8.0",
+ "log",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "smbus-pec",
+ "uuid",
+]
+
+[[package]]
+name = "mctp-lib"
+version = "0.1.0"
+source = "git+https://github.com/9elements/mctp-lib.git?branch=buildup#9c53adaeb7ae544cbeab4654530a50d158e33fe5"
+dependencies = [
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp-estack",
+]
+
+[[package]]
+name = "mctp-linux"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83222ce4977f40219231ca53cce871a2b24809b9e470d07301312d98fefa797a"
+dependencies = [
+ "libc",
+ "mctp 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "mctp-server"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "build-util",
+ "cortex-m",
+ "cortex-m-rt",
+ "counters",
+ "embedded-io",
+ "heapless 0.7.17",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "lib-ast1060-uart",
+ "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
+ "mctp-api",
+ "mctp-lib",
+ "nb 1.1.0",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "measurement-handoff"
 version = "0.1.0"
 dependencies = [
@@ -6560,6 +6667,14 @@ dependencies = [
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "test-mctp-request"
+version = "0.1.0"
+dependencies = [
+ "mctp 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mctp-linux",
 ]
 
 [[package]]
