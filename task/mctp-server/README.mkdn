@@ -1,0 +1,4 @@
+# About
+
+The `mctp-server` task implements a MCTP router with a interface similar to [mctp-estack](https://github.com/CodeConstruct/mctp-rs/blob/main/mctp-estack).
+

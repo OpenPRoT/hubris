@@ -1,0 +1,20 @@
+[package]
+name = "mctp-echo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+mctp-api = { path = "../mctp-api" }
+mctp = { workspace = true }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "mctp-echo"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "mctp-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-traits = { workspace = true }
+counters = { path = "../../lib/counters" }
+userlib = { path = "../../sys/userlib" }
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+derive-idol-err = { path = "../../lib/derive-idol-err"  }
+idol-runtime = { workspace = true }
+hubpack = { workspace = true }
+serde = { workspace = true }
+mctp = { workspace = true }
+lib-ast1060-uart = { path = "../../lib/ast1060-uart" }
+
+[build-dependencies]
+idol = { workspace = true }
+
+[lints]
+workspace = true

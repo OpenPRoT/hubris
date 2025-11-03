@@ -1,0 +1,83 @@
+// MCTP-Router IPC interface
+
+Interface(
+    name: "MCTP",
+    ops: {
+        "req": (
+            doc: "Create a request channel with a target `eid`",
+            args: {
+                "eid": "u8",
+            },
+            reply: Result(
+                ok: "GenericHandle",
+                err: CLike("ServerError"),
+            ),
+        ),
+        "listener": (
+            doc: "Create a `Listener` instance receiving messages for the given `typ`",
+            args: {
+                "typ": "u8",
+            },
+            reply: Result(
+                ok: "GenericHandle",
+                err: CLike("ServerError"),
+            ),
+        ),
+        "get_eid": (
+            doc: "Retrieve the EID assigned to the stack",
+            reply: Simple("u8"),
+            idempotent: true,
+        ),
+        "set_eid": (
+            doc: "Set the EID assigned to the stack",
+            args: {
+                "eid": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ServerError"),
+            ),
+        ),
+        "recv": (
+            doc: "Receive a single message, either a request matching the listener or a response to a request",
+            args: {
+                "handle": "GenericHandle",
+                "timeout_millis": "u32",
+            },
+            leases: {
+                "buf": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "RecvMetadata",
+                err: CLike("ServerError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "send": (
+            doc: "Send a single message, either as a request or response, returning the message tag",
+            args: {
+                "handle": "Option<GenericHandle>",
+                "typ": "u8",
+                "eid": "Option<u8>",
+                "tag": "Option<u8>",
+                "ic": "bool",
+            },
+            leases: {
+                "buf": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("ServerError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "drop": (
+            doc: "Drop a handle",
+            args: {
+                "handle": "GenericHandle",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    },
+)
