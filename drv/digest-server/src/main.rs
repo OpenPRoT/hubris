@@ -576,6 +576,30 @@ impl<D: HubrisDigestDevice> ServerImpl<D> {
         let words = self.finalize_sha256_internal(session_id)?;
         Ok(Digest::new(words))
     }
+    
+    // One-shot HMAC-SHA256 - uses session-based approach
+    fn compute_hmac_sha256_oneshot(&mut self, key: &[u8], data: &[u8]) -> Result<[u8; 32], DigestError> {
+        let session_id = self.init_hmac_sha256_internal(key)?;
+        self.update_internal(session_id, data)?;
+        let mac = self.finalize_hmac_sha256_internal(session_id)?;
+        Ok(mac)
+    }
+    
+    // One-shot HMAC-SHA384 - uses session-based approach
+    fn compute_hmac_sha384_oneshot(&mut self, key: &[u8], data: &[u8]) -> Result<[u8; 48], DigestError> {
+        let session_id = self.init_hmac_sha384_internal(key)?;
+        self.update_internal(session_id, data)?;
+        let mac = self.finalize_hmac_sha384_internal(session_id)?;
+        Ok(mac)
+    }
+    
+    // One-shot HMAC-SHA512 - uses session-based approach
+    fn compute_hmac_sha512_oneshot(&mut self, key: &[u8], data: &[u8]) -> Result<[u8; 64], DigestError> {
+        let session_id = self.init_hmac_sha512_internal(key)?;
+        self.update_internal(session_id, data)?;
+        let mac = self.finalize_hmac_sha512_internal(session_id)?;
+        Ok(mac)
+    }
 }
 
 // Implementation of the digest API - session-based operations using owned API
@@ -892,41 +916,137 @@ impl<D: HubrisDigestDevice> idl::InOrderDigestImpl for ServerImpl<D>
         Ok(())
     }
 
-    // HMAC one-shot methods (not implemented yet - return unsupported)
+    // HMAC one-shot methods
     fn hmac_oneshot_sha256(
         &mut self,
         _msg: &RecvMessage,
-        _key_len: u32,
-        _data_len: u32,
-        _key: LenLimit<Leased<R, [u8]>, 64>,
-        _data: LenLimit<Leased<R, [u8]>, 1024>,
-        _mac_out: Leased<W, [u32; 8]>,
+        key_len: u32,
+        data_len: u32,
+        key: LenLimit<Leased<R, [u8]>, 64>,
+        data: LenLimit<Leased<R, [u8]>, 1024>,
+        mac_out: Leased<W, [u32; 8]>,
     ) -> Result<(), RequestError<DigestError>> {
-        Err(RequestError::Runtime(DigestError::UnsupportedAlgorithm))
+        let key_len = key_len as usize;
+        let data_len = data_len as usize;
+        
+        if key_len > key.len() || key_len > 64 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+        if data_len > data.len() || data_len > 1024 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+
+        // Read key and data into buffers
+        let mut key_buffer = [0u8; 64];
+        let mut data_buffer = [0u8; 1024];
+        
+        key.read_range(0..key_len, &mut key_buffer[..key_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+        data.read_range(0..data_len, &mut data_buffer[..data_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+
+        // Compute HMAC
+        let mac = self.compute_hmac_sha256_oneshot(&key_buffer[..key_len], &data_buffer[..data_len])
+            .map_err(RequestError::Runtime)?;
+        
+        // Convert [u8; 32] to [u32; 8] for the IDL interface
+        let mut u32_result = [0u32; 8];
+        for (i, chunk) in mac.chunks(4).enumerate() {
+            u32_result[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        }
+        
+        mac_out.write(u32_result)
+            .map_err(|_| RequestError::Runtime(DigestError::HardwareFailure))?;
+
+        Ok(())
     }
 
     fn hmac_oneshot_sha384(
         &mut self,
         _msg: &RecvMessage,
-        _key_len: u32,
-        _data_len: u32,
-        _key: LenLimit<Leased<R, [u8]>, 128>,
-        _data: LenLimit<Leased<R, [u8]>, 1024>,
-        _mac_out: Leased<W, [u32; 12]>,
+        key_len: u32,
+        data_len: u32,
+        key: LenLimit<Leased<R, [u8]>, 128>,
+        data: LenLimit<Leased<R, [u8]>, 1024>,
+        mac_out: Leased<W, [u32; 12]>,
     ) -> Result<(), RequestError<DigestError>> {
-        Err(RequestError::Runtime(DigestError::UnsupportedAlgorithm))
+        let key_len = key_len as usize;
+        let data_len = data_len as usize;
+        
+        if key_len > key.len() || key_len > 128 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+        if data_len > data.len() || data_len > 1024 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+
+        // Read key and data into buffers
+        let mut key_buffer = [0u8; 128];
+        let mut data_buffer = [0u8; 1024];
+        
+        key.read_range(0..key_len, &mut key_buffer[..key_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+        data.read_range(0..data_len, &mut data_buffer[..data_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+
+        // Compute HMAC
+        let mac = self.compute_hmac_sha384_oneshot(&key_buffer[..key_len], &data_buffer[..data_len])
+            .map_err(RequestError::Runtime)?;
+        
+        // Convert [u8; 48] to [u32; 12] for the IDL interface
+        let mut u32_result = [0u32; 12];
+        for (i, chunk) in mac.chunks(4).enumerate() {
+            u32_result[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        }
+        
+        mac_out.write(u32_result)
+            .map_err(|_| RequestError::Runtime(DigestError::HardwareFailure))?;
+
+        Ok(())
     }
 
     fn hmac_oneshot_sha512(
         &mut self,
         _msg: &RecvMessage,
-        _key_len: u32,
-        _data_len: u32,
-        _key: LenLimit<Leased<R, [u8]>, 128>,
-        _data: LenLimit<Leased<R, [u8]>, 1024>,
-        _mac_out: Leased<W, [u32; 16]>,
+        key_len: u32,
+        data_len: u32,
+        key: LenLimit<Leased<R, [u8]>, 128>,
+        data: LenLimit<Leased<R, [u8]>, 1024>,
+        mac_out: Leased<W, [u32; 16]>,
     ) -> Result<(), RequestError<DigestError>> {
-        Err(RequestError::Runtime(DigestError::UnsupportedAlgorithm))
+        let key_len = key_len as usize;
+        let data_len = data_len as usize;
+        
+        if key_len > key.len() || key_len > 128 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+        if data_len > data.len() || data_len > 1024 {
+            return Err(RequestError::Runtime(DigestError::InvalidInputLength));
+        }
+
+        // Read key and data into buffers
+        let mut key_buffer = [0u8; 128];
+        let mut data_buffer = [0u8; 1024];
+        
+        key.read_range(0..key_len, &mut key_buffer[..key_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+        data.read_range(0..data_len, &mut data_buffer[..data_len])
+            .map_err(|_| RequestError::Runtime(DigestError::InvalidInputLength))?;
+
+        // Compute HMAC
+        let mac = self.compute_hmac_sha512_oneshot(&key_buffer[..key_len], &data_buffer[..data_len])
+            .map_err(RequestError::Runtime)?;
+        
+        // Convert [u8; 64] to [u32; 16] for the IDL interface
+        let mut u32_result = [0u32; 16];
+        for (i, chunk) in mac.chunks(4).enumerate() {
+            u32_result[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        }
+        
+        mac_out.write(u32_result)
+            .map_err(|_| RequestError::Runtime(DigestError::HardwareFailure))?;
+
+        Ok(())
     }
 
     // HMAC verification methods (not implemented yet - return unsupported)  
