@@ -141,3 +141,182 @@ exit $TEST_RESULT
 **Python script not running?**
 - Check file path is relative to workspace root
 - Make sure `.gdb` script uses `source app/...` not absolute paths
+
+## Hubris Debugging Conventions
+
+### Counters
+
+Hubris provides zero-overhead event counters for tracking runtime statistics. Counters are monotonically-increasing atomic values stored in each task's data segment.
+
+#### Defining Counters
+
+```rust
+use counters::{count, counters, Count};
+
+#[derive(Count, Copy, Clone)]
+enum Event {
+    TestsStarted,
+    TestsPassed,
+    TestsFailed,
+    OperationRetries,
+}
+
+counters!(Event);  // Creates static COUNTERS object
+```
+
+#### Incrementing Counters
+
+```rust
+count!(Event::TestsStarted);   // Increments the counter
+```
+
+#### Reading Counters in GDB
+
+```gdb
+# Read a specific counter
+print/d task_name::COUNTERS.TestsPassed.0
+
+# Example output: $1 = 42
+```
+
+#### Reading Counters in Python
+
+```python
+def read_counter(task_name, counter_name):
+    result = gdb.execute(f"print/d {task_name}::COUNTERS.{counter_name}.0", to_string=True)
+    import re
+    match = re.search(r'=\s*(\d+)', result)
+    if match:
+        return int(match.group(1))
+    return None
+```
+
+#### Reading Counters with Humility
+
+```bash
+humility -a app.zip counters -c TestsPassed
+humility -a app.zip counters  # Show all counters
+```
+
+### Ringbuf Traces
+
+Ringbufs are circular buffers for lightweight event logging. They provide a "flight recorder" for debugging crashes and unexpected behavior.
+
+#### Defining Ringbuf
+
+```rust
+use ringbuf::{ringbuf, ringbuf_entry};
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    TestStart(u32),     // Test starting
+    TestPass(u32),      // Test passed
+    TestFail(u32),      // Test failed
+    Mismatch(u32),      // Verification failed
+}
+
+ringbuf!(Trace, 16, Trace::None);  // 16-entry buffer
+```
+
+#### Logging Events
+
+```rust
+ringbuf_entry!(Trace::TestStart(0x5256));
+```
+
+#### Trace ID Convention
+
+The `u32` parameter in trace events is a **magic identifier** used to distinguish where in the code the trace was generated. This is an informal convention, not a requirement:
+
+**Recommended ID Scheme:**
+- Use hex values for readability: `0x5256` not `21078`
+- Encode context in the bits:
+  - High byte: Event category (5=start, 6=mismatch, 9=pass)
+  - Low bytes: Algorithm/test identifier (256=SHA256, 384=SHA384)
+
+**Example from ast1060-digest-test:**
+
+| Trace ID | Hex | Meaning | Location |
+|----------|-----|---------|----------|
+| `0x3256` | 12886 | SHA256 failed in main loop | main() error handler |
+| `0x3384` | 13188 | SHA384 failed in main loop | main() error handler |
+| `0x4000` | 16384 | All tests passed | main() success path |
+| `0x4001` | 16385 | Some tests failed | main() failure path |
+| `0x5256` | 21078 | SHA256 test starting | test_hmac_sha256() entry |
+| `0x6256` | 25174 | SHA256 HMAC mismatch | test_hmac_sha256() verification |
+| `0x9256` | 37462 | SHA256 test passed | test_hmac_sha256() exit |
+| `0x9384` | 37764 | SHA384 test passed | test_hmac_sha384() exit |
+
+**Why use magic IDs?**
+- Distinguishes multiple traces of the same type
+- No string formatting overhead
+- Compact storage (4 bytes)
+- Easy to search in dumps
+
+#### Reading Ringbuf with Humility
+
+```bash
+humility -a app.zip ringbuf -t task_name
+
+# Example output:
+# [0] TestStart(0x5256)
+# [1] TestPass(0x9256)
+# [2] TestStart(0x5384)
+# [3] TestPass(0x9384)
+```
+
+### Counter vs Ringbuf: When to Use
+
+**Use Counters when:**
+- You need to know **how many** times something happened
+- Exact order doesn't matter
+- Want to track totals over long periods
+- Need minimal memory overhead (4 bytes per counter)
+
+**Use Ringbuf when:**
+- You need to know **what happened recently**
+- Order and context matter
+- Want to debug crashes (last N events)
+- Need to see parameter values
+
+**Use Both when:**
+- You want statistical totals (counters) AND detailed history (ringbuf)
+- Example: `counted_ringbuf!` macro combines both approaches
+
+### Test Validation Best Practices
+
+When writing automated tests that read counters:
+
+1. **Always validate counter reads return non-None**
+   ```python
+   if passed is None or failed is None:
+       # Counter read failed - don't assume success!
+       return False
+   ```
+
+2. **Check both TestsPassed and TestsFailed**
+   ```python
+   if failed == 0 and passed >= expected_rounds:
+       # Success
+   ```
+
+3. **Add consistency checks**
+   ```python
+   if passed < test_round:
+       # Counter mismatch - something is wrong
+   ```
+
+4. **Provide detailed failure messages**
+   ```python
+   if failed > 0:
+       print(f"FAILED: {failed} test failures detected")
+   ```
+
+This prevents false positives where missing counters or incomplete tests are reported as success.
+
+## References
+
+- [Ringbuf source documentation](../../lib/ringbuf/src/lib.rs)
+- [Counters source documentation](../../lib/counters/src/lib.rs)
+- [Humility debugger](https://github.com/oxidecomputer/humility)

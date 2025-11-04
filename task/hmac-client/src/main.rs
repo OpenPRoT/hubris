@@ -15,7 +15,7 @@ use drv_digest_api::{Digest, DigestError};
 use counters::{count, counters, Count};
 use ringbuf::{ringbuf, ringbuf_entry};
 use hmac::{Hmac, Mac};
-use sha2::{Sha384, Sha512};
+use sha2::{Sha256, Sha384, Sha512};
 
 task_slot!(DIGEST, digest_server);
 
@@ -97,34 +97,25 @@ pub fn test_hmac_sha256(digest_client: &Digest, _round: u32) -> Result<(), Diges
     let key = b"test_key_256";
     let data = b"Hello, HMAC-SHA256!";
     
-    // Test one-shot HMAC
-    let mut hmac_output = [0u32; 8]; // SHA256 output is 8 u32 words
-    digest_client.hmac_oneshot_sha256(
-        key.len() as u32,
-        data.len() as u32,
-        key,
-        data,
-        &mut hmac_output,
-    )?;
-    
     // Test session-based HMAC
     let session_id = digest_client.init_hmac_sha256(key.len() as u32, key)?;
     digest_client.update(session_id, data.len() as u32, data)?;
     
-    let mut session_output = [0u32; 8];
-    digest_client.finalize_hmac_sha256(session_id, &mut session_output)?;
+    let mut hmac_output = [0u32; 8];
+    digest_client.finalize_hmac_sha256(session_id, &mut hmac_output)?;
     
-    // Test HMAC verification (using oneshot result as expected)
-    let verification_result = digest_client.verify_hmac_sha256(
-        key.len() as u32,
-        data.len() as u32,
-        key,
-        data,
-        &hmac_output,
-    )?;
+    // Software verification using RustCrypto
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
+    mac.update(data);
+    let expected = mac.finalize().into_bytes();
     
-    if !verification_result {
-        ringbuf_entry!(Trace::TestFail(0x8256));
+    let mut expected_words = [0u32; 8];
+    for (i, chunk) in expected.chunks_exact(4).enumerate() {
+        expected_words[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    }
+    
+    if hmac_output != expected_words {
+        ringbuf_entry!(Trace::Mismatch(0x6256));
         return Err(DigestError::HmacVerificationFailed);
     }
     

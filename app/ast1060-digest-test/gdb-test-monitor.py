@@ -119,8 +119,18 @@ class TestMonitor:
                                     # Check counters
                                     passed, failed = self.check_test_counters()
                                     
+                                    # Validate counters are readable
+                                    if passed is None or failed is None:
+                                        self.failure("Cannot read test counters - aborting!")
+                                        return False
+                                    
                                     if failed and failed > 0:
-                                        self.failure("Tests have failures!")
+                                        self.failure(f"Tests have {failed} failures!")
+                                        return False
+                                    
+                                    # Verify tests are actually passing
+                                    if passed < self.test_round:
+                                        self.failure(f"Test counter mismatch: {passed} passed but {self.test_round} rounds completed")
                                         return False
                                     
                                     if self.test_round >= self.max_rounds:
@@ -172,13 +182,28 @@ class TestMonitor:
         # Final counter check
         passed, failed = self.check_test_counters()
         
+        # Validate counters were readable
+        if passed is None or failed is None:
+            self.failure("Could not read test counters - validation failed!")
+            print("\n" + "=" * 70)
+            self.failure("TEST VALIDATION FAILED - COUNTERS UNREADABLE")
+            print("=" * 70 + "\n")
+            return False
+        
+        # Check for actual test success
         print("\n" + "=" * 70)
-        if self.test_round >= self.max_rounds and (failed == 0 or failed is None):
+        if self.test_round >= self.max_rounds and failed == 0 and passed >= self.max_rounds:
             self.success("ALL TESTS PASSED")
             print("=" * 70 + "\n")
             return True
         else:
             self.failure("TESTS FAILED OR INCOMPLETE")
+            if failed > 0:
+                self.failure(f"  {failed} test failures detected")
+            if self.test_round < self.max_rounds:
+                self.failure(f"  Only {self.test_round}/{self.max_rounds} rounds completed")
+            if passed < self.max_rounds:
+                self.failure(f"  Only {passed} tests passed (expected {self.max_rounds})")
             print("=" * 70 + "\n")
             return False
 
