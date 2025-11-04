@@ -88,7 +88,8 @@ fn main() -> ! {
     }
 }
 
-fn test_hmac_sha256(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
+#[inline(never)]
+pub fn test_hmac_sha256(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
     count!(Event::Sha256Tests);
     ringbuf_entry!(Trace::TestStart(0x5256));
     
@@ -131,7 +132,8 @@ fn test_hmac_sha256(digest_client: &Digest, _round: u32) -> Result<(), DigestErr
     Ok(())
 }
 
-fn test_hmac_sha384(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
+#[inline(never)]
+pub fn test_hmac_sha384(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
     count!(Event::Sha384Tests);
     ringbuf_entry!(Trace::TestStart(0x5384));
     
@@ -166,7 +168,8 @@ fn test_hmac_sha384(digest_client: &Digest, _round: u32) -> Result<(), DigestErr
     Ok(())
 }
 
-fn test_hmac_sha512(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
+#[inline(never)]
+pub fn test_hmac_sha512(digest_client: &Digest, _round: u32) -> Result<(), DigestError> {
     count!(Event::Sha512Tests);
     ringbuf_entry!(Trace::TestStart(0x5512));
     

@@ -80,6 +80,21 @@ set pagination off
 
 # Show what we loaded
 info files
+EOFGDB
+
+# Check for app-specific test automation script
+APP_TEST_SCRIPT="$WORKSPACE_ROOT/app/${APP_NAME}/gdb-test.gdb"
+if [ -f "$APP_TEST_SCRIPT" ]; then
+    echo -e "${GREEN}Found app-specific test automation: ${APP_TEST_SCRIPT}${NC}"
+    cat >> "$TEMP_GDB_INIT" << EOFGDB
+
+# Load app-specific test automation
+echo \\n=== Loading App-Specific Test Automation ===\\n
+source ${APP_TEST_SCRIPT}
+EOFGDB
+else
+    # Interactive debugging mode (no test automation)
+    cat >> "$TEMP_GDB_INIT" << EOFGDB
 
 # Print current status
 echo \\n=== GDB Connected Successfully ===\\n
@@ -96,14 +111,22 @@ echo   step / next               - Step through code\\n
 echo   print <var>               - Print variable value\\n
 echo =================================\\n
 EOFGDB
+fi
 
 echo -e "${BLUE}Starting GDB with auto-configuration...${NC}"
 echo -e "${YELLOW}GDB will automatically:${NC}"
 echo "  1. Connect to QEMU (localhost:1234)"
 echo "  2. Load all symbol files"
 echo "  3. Set up source path remapping"
+if [ -f "$APP_TEST_SCRIPT" ]; then
+    echo "  4. Run app-specific test automation"
+fi
 echo ""
-echo -e "${GREEN}Ready to debug! Type 'continue' to start execution.${NC}"
+if [ -f "$APP_TEST_SCRIPT" ]; then
+    echo -e "${GREEN}Running automated tests...${NC}"
+else
+    echo -e "${GREEN}Ready to debug! Type 'continue' to start execution.${NC}"
+fi
 echo ""
 
 # Start GDB with our initialization script

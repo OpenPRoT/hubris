@@ -120,7 +120,9 @@ type DefaultDigestDevice = RustCryptoController;
 type DefaultDigestDevice = MockDigestController;
 
 // Maximum concurrent digest sessions
-const MAX_SESSIONS: usize = 16;
+// NOTE: Current implementation only supports 1 concurrent session due to single hardware controller.
+// This value is reserved for future multi-session support when hardware pooling is implemented.
+const MAX_SESSIONS: usize = 1;
 
 // Server implementation using Hubris IDL Integration traits
 pub struct ServerImpl<D: HubrisDigestDevice> {
