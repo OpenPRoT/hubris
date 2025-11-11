@@ -241,6 +241,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-uart-log"
+version = "0.1.0"
+dependencies = [
+ "ast1060-uart-api",
+ "critical-section",
+ "embedded-io",
+ "log",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
