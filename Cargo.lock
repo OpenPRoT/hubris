@@ -208,6 +208,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1060-mctp-i2c-echo"
+version = "0.1.0"
+dependencies = [
+ "ast1060-pac",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+]
+
+[[package]]
 name = "ast1060-pac"
 version = "0.1.0"
 source = "git+https://github.com/aspeedtech-bmc/ast1060-pac.git#35ce8190e9b40deff918300b69d23079ca15a3f4"
@@ -4137,17 +4147,19 @@ dependencies = [
 name = "mctp-server"
 version = "0.1.0"
 dependencies = [
- "ast1060-pac",
+ "ast1060-uart-api",
+ "ast1060-uart-log",
  "build-util",
  "cortex-m",
  "cortex-m-rt",
  "counters",
+ "drv-i2c-api",
  "embedded-io",
  "heapless 0.7.17",
  "hubpack",
  "idol",
  "idol-runtime",
- "lib-ast1060-uart",
+ "log",
  "mctp 0.2.0 (git+https://github.com/OpenPRoT/mctp-rs.git?branch=sync-features)",
  "mctp-api",
  "mctp-lib",
