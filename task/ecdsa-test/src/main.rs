@@ -11,7 +11,7 @@
 #![no_main]
 
 use drv_openprot_ecdsa_api::{EcdsaError, OpenPRoTEcdsa};
-use userlib::{task_slot, hl, sys_send, Lease, UnwrapLite};
+use userlib::{hl, sys_send, task_slot, Lease, UnwrapLite};
 
 task_slot!(ECDSA_SERVER, ecdsa_server);
 task_slot!(UART, uart_driver);
@@ -19,7 +19,8 @@ task_slot!(UART, uart_driver);
 fn uart_send(text: &[u8]) {
     let peer = UART.get_task_id();
     const OP_WRITE: u16 = 1;
-    let (code, _) = sys_send(peer, OP_WRITE, &[], &mut [], &[Lease::from(text)]);
+    let (code, _) =
+        sys_send(peer, OP_WRITE, &[], &mut [], &[Lease::from(text)]);
     assert_eq!(0, code);
 }
 
@@ -32,26 +33,28 @@ fn print(msg: &str) {
 fn main() -> ! {
     // Wait for other tasks to start
     hl::sleep_for(1000);
-    
+
     print("ECDSA Test Task starting...");
-    
+
     let ecdsa = OpenPRoTEcdsa::from(ECDSA_SERVER.get_task_id());
-    
+
     // Simple test: try to sign a hash
     let test_hash = [0u8; 48]; // SHA-384 sized hash
     let mut signature_buf = [0u8; 104];
-    
+
     print("Testing ECDSA signing...");
     match ecdsa.ecdsa384_sign(1, &test_hash, &mut signature_buf) {
         Ok(_) => print("✓ ECDSA signing succeeded"),
-        Err(EcdsaError::HardwareNotAvailable) => print("⚠ ECDSA server not implemented yet"),
+        Err(EcdsaError::HardwareNotAvailable) => {
+            print("⚠ ECDSA server not implemented yet")
+        }
         Err(_) => print("✗ ECDSA signing failed"),
     }
-    
+
     // Simple test: try to verify a signature
     let test_pubkey = [0x04; 97]; // Dummy uncompressed public key
     let test_signature = [0u8; 72]; // Dummy signature
-    
+
     print("Testing ECDSA verification...");
     match ecdsa.ecdsa384_verify(&test_hash, &test_signature, &test_pubkey) {
         Ok(valid) => {
@@ -60,13 +63,15 @@ fn main() -> ! {
             } else {
                 print("✓ ECDSA verification succeeded (signature invalid)");
             }
-        },
-        Err(EcdsaError::HardwareNotAvailable) => print("⚠ ECDSA server not implemented yet"),
+        }
+        Err(EcdsaError::HardwareNotAvailable) => {
+            print("⚠ ECDSA server not implemented yet")
+        }
         Err(_) => print("✗ ECDSA verification failed"),
     }
-    
+
     print("ECDSA tests completed");
-    
+
     // Main task loop
     loop {
         hl::sleep_for(10000);

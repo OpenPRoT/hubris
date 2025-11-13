@@ -206,7 +206,7 @@ impl Read<u8> for Uart {
             OpCode::Read as u16,
             &[],
             &mut response,
-            &mut [Lease::from(buf.as_mut_slice())],
+            &[Lease::from(buf.as_mut_slice())],
         );
 
         let code = code.try_into().unwrap_lite();
@@ -275,7 +275,7 @@ impl IoRead for Uart {
                 OpCode::Read as u16,
                 &[],
                 &mut response,
-                &mut [Lease::from(&mut *out)],
+                &[Lease::from(&mut *out)],
             );
 
             let code = code.try_into().unwrap_lite();
@@ -292,7 +292,7 @@ impl IoRead for Uart {
                 ResponseCode::WouldBlock => continue,
                 ResponseCode::ServerDeath => {
                     self.task_id = sys_refresh_task_id(self.task_id);
-                    return Err(UartError::ServerDeath.into());
+                    return Err(UartError::ServerDeath);
                 }
                 x => return Err(UartError::try_from(x).unwrap_lite()),
             }
@@ -316,14 +316,12 @@ impl IoWrite for Uart {
         );
         let code = code.try_into().unwrap_lite();
         match code {
-            ResponseCode::Success => {
-                return Ok(buf.len());
-            }
+            ResponseCode::Success => Ok(buf.len()),
             ResponseCode::ServerDeath => {
                 self.task_id = sys_refresh_task_id(self.task_id);
-                return Err(UartError::ServerDeath.into());
+                Err(UartError::ServerDeath)
             }
-            x => return Err(UartError::try_from(x).unwrap_lite()),
+            x => Err(UartError::try_from(x).unwrap_lite()),
         }
     }
 }
