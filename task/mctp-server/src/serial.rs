@@ -2,17 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use ast1060_uart_api::Uart;
 use core::{cell::RefCell, ops::DerefMut};
 use embedded_io::Write;
 use mctp::Result;
 use userlib::*;
 
-use super::notifications;
-
-use lib_ast1060_uart::{InterruptDecoding, Usart};
-
 pub struct SerialSender<'a> {
-    pub usart: &'a RefCell<Usart<'a>>,
+    pub usart: &'a RefCell<Uart>,
     serial_handler: mctp_stack::serial::MctpSerialHandler,
 }
 
@@ -50,38 +47,10 @@ impl<'a> mctp_stack::Sender for SerialSender<'a> {
 
 impl<'a> SerialSender<'a> {
     /// Create a new SerialSender instance with the neccessary serial setup code.
-    pub fn new(uart: &'a RefCell<Usart<'a>>) -> Self {
-        sys_irq_control(notifications::UART_IRQ_MASK, true);
-
+    pub fn new(uart: &'a RefCell<Uart>) -> Self {
         Self {
             usart: uart,
             serial_handler: mctp_stack::serial::MctpSerialHandler::new(),
         }
     }
-}
-
-pub fn handle_uart_interrupt<'a>(
-    interrupt: InterruptDecoding,
-    usart: &RefCell<Usart<'_>>,
-    serial_reader: &'a mut mctp_stack::serial::MctpSerialHandler,
-) -> Option<Result<&'a [u8]>> {
-    let usart = &mut usart.borrow_mut();
-    match interrupt {
-        InterruptDecoding::RxDataAvailable
-        | InterruptDecoding::CharacterTimeout => {
-            usart.clear_rx_data_available_interrupt();
-            let ret = serial_reader.recv(&mut usart.deref_mut());
-            usart.set_rx_data_available_interrupt();
-            return Some(ret);
-        }
-        InterruptDecoding::ModemStatusChange => {
-            usart.read_modem_status();
-        }
-        InterruptDecoding::TxEmpty => usart.clear_tx_idle_interrupt(),
-        InterruptDecoding::LineStatusChange => {
-            usart.read_line_status();
-        }
-        _ => return Some(Err(mctp::Error::RxFailure)),
-    }
-    None
 }

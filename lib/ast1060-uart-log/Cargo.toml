@@ -1,0 +1,19 @@
+[package]
+name = "ast1060-uart-log"
+version = "0.1.0"
+edition = "2021"
+description = "Print log messages over the AST1060 UART"
+
+[dependencies]
+critical-section.workspace = true
+embedded-io.workspace = true
+log.workspace = true
+ast1060-uart-api = { path = "../../drv/ast1060-uart-api" }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

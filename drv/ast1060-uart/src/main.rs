@@ -73,13 +73,13 @@ fn main() -> ! {
                             if rx_buf.push_back(byte).is_err() {
                                 overflow = true;
                             }
-                            if rx_buf.len() > buffer_len {
-                                if let Some((task, notification_bit)) =
-                                    notify_rx_data
-                                {
-                                    // Notify the task that data is available.
-                                    sys_post(task, 1 << notification_bit);
-                                }
+                        }
+                        if rx_buf.len() > buffer_len {
+                            if let Some((task, notification_bit)) =
+                                notify_rx_data
+                            {
+                                // Notify the task that data is available.
+                                sys_post(task, 1 << notification_bit);
                             }
                         }
                     }
