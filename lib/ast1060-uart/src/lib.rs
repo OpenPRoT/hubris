@@ -8,7 +8,6 @@ use ast1060_pac as device;
 use bitflags::bitflags;
 use embedded_hal::serial::{Read as EhRead, Write as EhWrite};
 use embedded_io::{Read, Write};
-use unwrap_lite::UnwrapLite;
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Error {
@@ -229,7 +228,7 @@ impl EhRead<u8> for Usart<'_> {
                 Err(nb::Error::Other(Error::Noise))
             } else {
                 // assume 8 bit data
-                Ok(byte.try_into().unwrap_lite())
+                Ok(byte)
             }
         } else {
             Err(nb::Error::WouldBlock)

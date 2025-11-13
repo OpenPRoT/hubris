@@ -25,9 +25,9 @@ on:
 
 jobs:
   build-one:
-     permissions:
-       id-token: write
-       attestations: write
+     #permissions:
+     #  id-token: write
+     #  attestations: write
      name: "${{ inputs.app_name }}/${{ inputs.app_toml}}"
      runs-on: ${{ inputs.os }}
      env:
@@ -87,12 +87,12 @@ jobs:
         run: |
           cargo xtask clippy ${{ inputs.app_toml}} -- --deny warnings
 
-      - name: Attestation
-        uses: actions/attest-build-provenance@v1
-        # Only attest if we're doing a colo build 
-        if: inputs.os == 'oxide-colo-builder-hubris'
-        with:
-          subject-path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
+      #- name: Attestation
+      #  uses: actions/attest-build-provenance@v1
+      #  # Only attest if we're doing a colo build
+      #  if: inputs.os == 'oxide-colo-builder-hubris'
+      #  with:
+      #    subject-path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
 
       # upload the output of our build
       - name: Upload build archive

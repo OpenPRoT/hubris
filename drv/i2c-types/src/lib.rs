@@ -29,14 +29,14 @@
 //! - **Fixed Buffer Size**: Messages use a fixed 255-byte buffer to match typical
 //!   I2C transaction limits and simplify memory management without dynamic allocation.
 //!
-//! - **Serialization Requirements**: Types used in IPC messages must implement 
-//!   `SerializedSize`, `Serialize`, and `Deserialize` for Hubris IPC communication. 
-//!   Newtypes like `PortIndex` inherit these requirements when used in serializable 
+//! - **Serialization Requirements**: Types used in IPC messages must implement
+//!   `SerializedSize`, `Serialize`, and `Deserialize` for Hubris IPC communication.
+//!   Newtypes like `PortIndex` inherit these requirements when used in serializable
 //!   contexts (e.g., as fields in `SlaveConfig`).
 //!
-//! - **Large Array Serialization**: Arrays larger than 32 elements require the 
-//!   `serde-big-array` crate and `#[serde(with = "BigArray")]` attribute. This 
-//!   follows the established Hubris pattern used in `host-sp-messages` and other 
+//! - **Large Array Serialization**: Arrays larger than 32 elements require the
+//!   `serde-big-array` crate and `#[serde(with = "BigArray")]` attribute. This
+//!   follows the established Hubris pattern used in `host-sp-messages` and other
 //!   crates for handling buffers that exceed serde's built-in array size limits.
 //!
 //! ### Usage Pattern
@@ -84,7 +84,7 @@ pub enum Op {
     WriteReadBlock = 2,
 
     /// Configure the I2C controller to act as a slave device with the specified
-    /// address. This enables the controller to respond to incoming I2C 
+    /// address. This enables the controller to respond to incoming I2C
     /// transactions from other masters on the bus.
     ///
     /// The payload should contain:
@@ -98,7 +98,7 @@ pub enum Op {
     ConfigureSlaveAddress = 3,
 
     /// Enable slave receive mode for the specified controller/port combination.
-    /// After this operation, the controller will begin buffering incoming 
+    /// After this operation, the controller will begin buffering incoming
     /// messages sent to its configured slave address(es).
     ///
     /// This must be called after `ConfigureSlaveAddress` to begin receiving
@@ -269,7 +269,17 @@ pub enum ReservedAddress {
 /// letter/number convention should be used (e.g., "B1") -- but this is purely
 /// convention.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, SerializedSize, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
 pub struct PortIndex(pub u8);
 
 ///
@@ -332,11 +342,13 @@ pub enum Segment {
 }
 
 /// Represents a message received while operating in I2C slave mode
-/// 
+///
 /// When the I2C controller is configured as a slave, it can receive messages
 /// from other masters on the bus. Each received message includes the source
 /// address and the data payload.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
 pub struct SlaveMessage {
     /// The 7-bit I2C address of the master that sent this message
     pub source_address: u8,
@@ -354,17 +366,17 @@ impl SlaveMessage {
         if data.len() > 255 {
             return Err(ResponseCode::TooMuchData);
         }
-        
+
         let mut msg = SlaveMessage {
             source_address,
             data_length: data.len() as u8,
             data: [0; 255],
         };
-        
+
         msg.data[..data.len()].copy_from_slice(data);
         Ok(msg)
     }
-    
+
     /// Get the valid data portion of this message
     pub fn data(&self) -> &[u8] {
         &self.data[..self.data_length as usize]
@@ -372,7 +384,9 @@ impl SlaveMessage {
 }
 
 /// Configuration for I2C slave mode operation
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
 pub struct SlaveConfig {
     /// The controller to configure for slave operation
     pub controller: Controller,
@@ -384,17 +398,21 @@ pub struct SlaveConfig {
 
 impl SlaveConfig {
     /// Create a new slave configuration
-    pub fn new(controller: Controller, port: PortIndex, address: u8) -> Result<Self, ResponseCode> {
+    pub fn new(
+        controller: Controller,
+        port: PortIndex,
+        address: u8,
+    ) -> Result<Self, ResponseCode> {
         // Validate that the address is not reserved
         if ReservedAddress::from_u8(address).is_some() {
             return Err(ResponseCode::BadSlaveAddress);
         }
-        
+
         // Ensure it's a valid 7-bit address
         if address > 0x7F {
             return Err(ResponseCode::BadSlaveAddress);
         }
-        
+
         Ok(SlaveConfig {
             controller,
             port,
