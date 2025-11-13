@@ -9,8 +9,10 @@ jobs:
     name: dist
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # options: ubuntu-latest, windows-latest
+        os: [ubuntu-latest]
     uses: ./.github/workflows/build-boards.yml
     with:
-      board-set: all
+      # options: all, all-sp, sidecar, psc, rot, openprot, gimlet, cosmo, devboards, tests
+      board-set: openprot
       os: ${{ matrix.os }}
