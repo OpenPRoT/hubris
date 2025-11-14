@@ -7,26 +7,28 @@
 // We have to do this if we don't otherwise use it to ensure its vector table
 // gets linked in.
 
-use cortex_m_rt::entry;
 use ast1060_pac::Peripherals;
+use cortex_m_rt::entry;
 
 #[cfg(feature = "jtag-halt")]
 use core::ptr::{self, addr_of};
 
 #[entry]
 fn main() -> ! {
-
     // This code just forces the ast1060 pac to be linked in.
-    let peripherals = unsafe {
-        Peripherals::steal()
-    };
+    let peripherals = unsafe { Peripherals::steal() };
     peripherals.scu.scu41c().modify(|_, w| {
         // Set the JTAG pinmux to 0x1f << 25
-        w.enbl_armtmsfn_pin().bit(true)
-            .enbl_armtckfn_pin().bit(true)
-            .enbl_armtrstfn_pin().bit(true)
-            .enbl_armtdifn_pin().bit(true)
-            .enbl_armtdofn_pin().bit(true)
+        w.enbl_armtmsfn_pin()
+            .bit(true)
+            .enbl_armtckfn_pin()
+            .bit(true)
+            .enbl_armtrstfn_pin()
+            .bit(true)
+            .enbl_armtdifn_pin()
+            .bit(true)
+            .enbl_armtdofn_pin()
+            .bit(true)
     });
 
     #[cfg(feature = "jtag-halt")]
@@ -40,7 +42,7 @@ fn main() -> ! {
 
 #[cfg(feature = "jtag-halt")]
 fn jtag_halt() {
-    static mut HALT : u32 = 1;
+    static mut HALT: u32 = 1;
 
     // This is a hack to halt the CPU in JTAG mode.
     // It writes a value to a volatile memory location

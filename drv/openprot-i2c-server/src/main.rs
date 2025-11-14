@@ -11,8 +11,8 @@
 use drv_i2c_api::*;
 use drv_i2c_types::{traits::I2cHardware, Op, ResponseCode};
 
-use userlib::{hl, LeaseAttributes};
 use ringbuf::*;
+use userlib::{hl, LeaseAttributes};
 
 mod mock_driver;
 use mock_driver::MockI2cDriver;
@@ -20,11 +20,25 @@ use mock_driver::MockI2cDriver;
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     None,
-    Transaction { controller: u8, addr: u8, len: usize },
-    SlaveConfigured { controller: u8, addr: u8 },
-    SlaveMessage { controller: u8, addr: u8, len: usize },
+    Transaction {
+        controller: u8,
+        addr: u8,
+        len: usize,
+    },
+    SlaveConfigured {
+        controller: u8,
+        addr: u8,
+    },
+    SlaveMessage {
+        controller: u8,
+        addr: u8,
+        len: usize,
+    },
     #[count(skip)]
-    Panic { controller: u8, status: u32 },
+    Panic {
+        controller: u8,
+        status: u32,
+    },
 }
 
 counted_ringbuf!(Trace, 64, Trace::None);
@@ -33,7 +47,7 @@ counted_ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     // Create Mock I2C driver on the stack for IPC testing
     let mut driver = MockI2cDriver::new();
-    
+
     // Optional: Configure driver for specific test scenarios
     // Example: driver.set_device_response(Controller::I2C0, 0x50, &[0x12, 0x34]).ok();
 
@@ -54,7 +68,8 @@ fn main() -> ! {
                 }
 
                 // For mock mode, we use the standard marshal format but ignore complex topology
-                let (addr, controller, _port, _mux) = Marshal::unmarshal(payload)?;
+                let (addr, controller, _port, _mux) =
+                    Marshal::unmarshal(payload)?;
 
                 let mut total = 0;
 
@@ -82,7 +97,8 @@ fn main() -> ! {
                     // Read write data from lease
                     let mut write_data = [0u8; 255];
                     for pos in 0..winfo.len {
-                        write_data[pos] = wbuf.read_at(pos).ok_or(ResponseCode::BadArg)?;
+                        write_data[pos] =
+                            wbuf.read_at(pos).ok_or(ResponseCode::BadArg)?;
                     }
 
                     // Prepare read buffer
@@ -108,7 +124,8 @@ fn main() -> ! {
 
                     // Write read data back to lease
                     for pos in 0..bytes_read.min(rinfo.len) {
-                        rbuf.write_at(pos, read_slice[pos]).ok_or(ResponseCode::BadArg)?;
+                        rbuf.write_at(pos, read_slice[pos])
+                            .ok_or(ResponseCode::BadArg)?;
                     }
 
                     total += bytes_read;
@@ -123,15 +140,16 @@ fn main() -> ! {
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
-                let (slave_address, controller, port, _segment) = Marshal::unmarshal(payload)?;
-                
-                // Create slave configuration  
+                let (slave_address, controller, port, _segment) =
+                    Marshal::unmarshal(payload)?;
+
+                // Create slave configuration
                 let config = SlaveConfig::new(controller, port, slave_address)
                     .map_err(|_| ResponseCode::BadArg)?;
-                
+
                 // Configure slave mode on hardware
                 driver.configure_slave_mode(controller, &config)?;
-                
+
                 caller.reply(0usize);
                 Ok(())
             }
@@ -141,8 +159,9 @@ fn main() -> ! {
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
-                let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
-                
+                let (_address, controller, _port, _segment) =
+                    Marshal::unmarshal(payload)?;
+
                 driver.enable_slave_receive(controller)?;
                 caller.reply(0usize);
                 Ok(())
@@ -153,8 +172,9 @@ fn main() -> ! {
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
-                let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
-                
+                let (_address, controller, _port, _segment) =
+                    Marshal::unmarshal(payload)?;
+
                 driver.disable_slave_receive(controller)?;
                 caller.reply(0usize);
                 Ok(())
@@ -165,13 +185,14 @@ fn main() -> ! {
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
-                let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
-                
+                let (_address, controller, _port, _segment) =
+                    Marshal::unmarshal(payload)?;
+
                 // Check for slave messages - for now just return count
                 // A full implementation would need to handle message data formatting
                 let temp_messages: [u8; 0] = []; // Empty for mock
                 let count = temp_messages.len();
-                
+
                 caller.reply(count);
                 Ok(())
             }

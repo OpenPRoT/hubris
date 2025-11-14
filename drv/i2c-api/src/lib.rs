@@ -21,7 +21,7 @@
 //!
 //! # Extended Capabilities
 //!
-//! This crate provides both traditional master operations and new slave mode 
+//! This crate provides both traditional master operations and new slave mode
 //! operations for peer-to-peer protocols like MCTP:
 //!
 //! ## Master Mode Operations
@@ -673,7 +673,7 @@ impl I2cDevice {
     // ================================================================
 
     ///
-    /// Configure this I2C controller/port to act as a slave device with the 
+    /// Configure this I2C controller/port to act as a slave device with the
     /// specified address. This enables the controller to respond to incoming
     /// I2C transactions from other masters on the bus.
     ///
@@ -690,9 +690,12 @@ impl I2cDevice {
     /// Returns [`ResponseCode::SlaveAddressInUse`] if the address is already configured.
     /// Returns [`ResponseCode::SlaveNotSupported`] if slave mode is not supported on this controller.
     ///
-    pub fn configure_slave_address(&self, slave_address: u8) -> Result<(), ResponseCode> {
+    pub fn configure_slave_address(
+        &self,
+        slave_address: u8,
+    ) -> Result<(), ResponseCode> {
         let mut response = 0_usize;
-        
+
         let (code, _) = sys_send(
             self.task,
             Op::ConfigureSlaveAddress as u16,
@@ -711,7 +714,7 @@ impl I2cDevice {
 
     ///
     /// Enable slave receive mode for this controller/port combination.
-    /// After this operation, the controller will begin buffering incoming 
+    /// After this operation, the controller will begin buffering incoming
     /// messages sent to its configured slave address(es).
     ///
     /// This must be called after [`configure_slave_address`] to begin receiving
@@ -783,7 +786,10 @@ impl I2cDevice {
     ///
     /// Multiple messages may be returned in a single buffer if space permits.
     ///
-    pub fn check_slave_buffer(&self, buffer: &mut [u8]) -> Result<usize, ResponseCode> {
+    pub fn check_slave_buffer(
+        &self,
+        buffer: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -815,28 +821,31 @@ impl I2cDevice {
     ///
     /// The number of messages parsed and stored in the slice.
     ///
-    pub fn get_slave_messages(&self, messages: &mut [SlaveMessage]) -> Result<usize, ResponseCode> {
+    pub fn get_slave_messages(
+        &self,
+        messages: &mut [SlaveMessage],
+    ) -> Result<usize, ResponseCode> {
         let mut buffer = [0u8; 1024]; // Buffer for raw message data
         let bytes_read = self.check_slave_buffer(&mut buffer)?;
-        
+
         let mut message_count = 0;
         let mut pos = 0;
-        
+
         while pos < bytes_read && message_count < messages.len() {
             if pos + 2 > bytes_read {
                 break; // Not enough data for header
             }
-            
+
             let source_addr = buffer[pos];
             let data_length = buffer[pos + 1];
             pos += 2;
-            
+
             if pos + data_length as usize > bytes_read {
                 break; // Not enough data for payload
             }
-            
+
             let message_data = &buffer[pos..pos + data_length as usize];
-            
+
             match SlaveMessage::new(source_addr, message_data) {
                 Ok(message) => {
                     messages[message_count] = message;
@@ -846,7 +855,7 @@ impl I2cDevice {
                 Err(_) => break, // Invalid message format
             }
         }
-        
+
         Ok(message_count)
     }
 }
