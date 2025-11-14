@@ -2,6 +2,8 @@
 
 Hubris is a microcontroller operating environment for deeply-embedded systems with strict reliability requirements. This is NOT a traditional RTOS—understand the architecture before making changes.
 
+**This is an OpenPRoT fork** integrating OpenPRoT cryptographic primitives (digest, ECDSA, HMAC) via `openprot-hal-blocking` and `openprot-platform-traits-hubris`. See `Cargo.toml` workspace dependencies and `drv/digest-server` for examples.
+
 ## Core Architecture Principles
 
 **Task-Based Design**: Hubris applications consist of a fixed set of tasks defined at build time in `app.toml` files. Tasks cannot be created or destroyed at runtime—this is intentional for reliability and resource predictability.
@@ -64,6 +66,10 @@ idol::client::build_client_stub("../../idl/myapi.idol", "client_stub.rs")?;
 
 Client crates typically live in `drv/NAME-api/` or `task/NAME-api/`. Servers implement operations defined in `.idol` files.
 
+**Idol Types**: Use `leases` for large data transfers (avoids copying), support `Result` returns with custom error enums. Operations return structured data or error codes. See `idl/hash.idol` and `idl/openprot-digest.idol` for examples.
+
+**Zerocopy Integration**: Idol generates code using `zerocopy` derives. In `build.rs`, may need to post-process generated stubs replacing `zerocopy_derive::*` with `zerocopy::*` for compatibility with zerocopy 0.8.x (see `drv/digest-server/build.rs`).
+
 ## Directory Structure
 
 - `app/` - Application firmware crates (e.g., `app/gimlet`, `app/oxide-rot-1`)
@@ -117,15 +123,33 @@ Archive files (`app.zip`) contain debug info for post-mortem analysis.
 
 Defined in workspace root `Cargo.toml`. Hubris depends heavily on:
 - `idol` / `idol-runtime` - IPC code generation
-- `zerocopy` - Zero-copy parsing
+- `zerocopy` - Zero-copy parsing (use version 0.8.x patterns)
 - `hubpack` - Serialization for IPC
 - Chip PACs: `stm32h7`, `stm32f4`, `lpc55-pac`, `ast1060-pac`
 
-OpenPRoT-specific: Uses OpenPRoT platform crates on the `i2c-hardware` branch.
+**OpenPRoT Integration**: This fork uses OpenPRoT cryptographic platform crates:
+- `openprot-hal-blocking` - Blocking HAL traits (Digest, Mac operations)
+- `openprot-platform-traits-hubris` - Hubris platform implementation (`HubrisDigestDevice`, `CryptoSession`)
+- `openprot-platform-mock` - Software mock for testing without hardware
+- `openprot-platform-rustcrypto` - RustCrypto-based implementation
+
+Example: `drv/digest-server` implements hardware-accelerated SHA-256/384/512 and HMAC using OpenPRoT traits with session-based APIs returning `Digest<N>` output types.
 
 ## Testing
 
 Tests live in `test/tests-BOARD/`. Use `cargo xtask test app/TEST.toml` to build, flash, and run tests via Humility.
+
+**QEMU Testing**: For AST1060 targets, use convenience scripts:
+- `./run-qemu-i2c-scaffold-app.sh` - Run I2C scaffold app in QEMU with GDB support
+- `./run-gdb-i2c-scaffold-app.sh` - Connect GDB to QEMU instance
+
+QEMU command pattern:
+```bash
+qemu-system-arm -M ast1030-evb -nographic -serial mon:stdio \
+    -kernel target/APPNAME/dist/default/final.bin -s -S
+```
+
+Connect with: `gdb-multiarch`, then `target remote localhost:1234`.
 
 ## What NOT to do
 
