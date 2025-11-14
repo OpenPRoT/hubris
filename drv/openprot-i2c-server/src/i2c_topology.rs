@@ -1,3 +1,6 @@
+// Copyright 2024 Advanced Micro Devices, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 //! I2C Bus Topology Management
 //! 
 //! This module handles I2C bus topology including controller management,

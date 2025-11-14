@@ -17,6 +17,7 @@ use core::ptr::{self, addr_of};
 fn main() -> ! {
     // This code just forces the ast1060 pac to be linked in.
     let peripherals = unsafe { Peripherals::steal() };
+    peripherals.scu.scu000().modify(|_, w| w);
     peripherals.scu.scu41c().modify(|_, w| {
         // Set the JTAG pinmux to 0x1f << 25
         w.enbl_armtmsfn_pin()
@@ -35,7 +36,7 @@ fn main() -> ! {
     jtag_halt();
 
     // Default boot speed, until we bother raising it:
-    const CYCLES_PER_MS: u32 = 200_000;
+    const CYCLES_PER_MS: u32 = 16_000;
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }

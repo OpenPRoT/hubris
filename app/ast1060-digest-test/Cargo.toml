@@ -16,10 +16,11 @@
 [package]
 edition = "2021"
 readme = "README.md"
-name = "ast1060-ecdsa-test"
+name = "ast1060-digest-test"
 version = "0.1.0"
 
 [features]
+#dump = ["kern/dump"]
 jtag-halt = []
 
 [dependencies]
@@ -30,8 +31,9 @@ kern = { path = "../../sys/kern" }
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "ast1060-ecdsa-test"
+name = "ast1060-digest-test"
 test = false
+doctest = false
 bench = false
 
 [lints]
