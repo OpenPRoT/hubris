@@ -1,12 +1,24 @@
 header:
   license:
-    spdx-id: MPL-2.0
-
+    spdx-id: MPL-2.0 OR Apache-2.0
+    
+    # Accept either MPL-2.0 or Apache-2.0 license headers
+    # This allows files from different contributors to use appropriate licenses
     content: |
       This Source Code Form is subject to the terms of the Mozilla Public
       License, v. 2.0. If a copy of the MPL was not distributed with this
       file, You can obtain one at https://mozilla.org/MPL/2.0/.
+      
+      OR
+      
+      Copyright {{copyright_year}} {{copyright_owner}}
+      SPDX-License-Identifier: Apache-2.0
+  
   paths:
     - '**/*.rs'
+  
+  paths-ignore:
+    - 'target/**'
+    - '**/target/**'
 
   comment: on-failure
