@@ -1,11 +1,11 @@
-name = "ast1060-mctp-echo"
+name = "ast1060-mctp-i2c-echo"
 target = "thumbv7em-none-eabihf"
 board = "ast1060-rot"
 chip = "../../chips/ast1060"
 stacksize = 1024 
 
 [kernel]
-name = "ast1060-mctp-echo"
+name = "ast1060-mctp-i2c-echo"
 requires = {flash = 20000, ram = 3072}
 
 [tasks.jefe]
@@ -34,14 +34,12 @@ task-slots = ["mctp_server"]
 [tasks.mctp_server]
 name = "mctp-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 16384}
+max-sizes = {flash = 32867, ram = 16384}
 start = true
 stacksize = 12288
-notifications = ["uart-irq", "timer", "rx-data"]
-interrupts = {"uart.irq" = "uart-irq"}
-uses = ["uart"]
-task-slots = ["uart_driver"]
-features = ["transport_serial"]
+task-slots = ["uart_driver", "i2c_driver"]
+notifications = ["rx-data", "timer"]
+features = ["serial_log", "transport_i2c"]
 
 [tasks.uart_driver]
 name = "drv-ast1060-uart"
@@ -51,3 +49,12 @@ uses = ["uart"]
 start = true
 notifications = ["uart-irq"]
 interrupts = {"uart.irq" = "uart-irq"}
+
+[tasks.i2c_driver]
+name = "drv-mock-i2c"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+features = ["mock-only"]
+stacksize = 2048
+notifications = ["i2c-irq"]

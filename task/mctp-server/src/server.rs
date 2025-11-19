@@ -133,9 +133,6 @@ impl<S: mctp_stack::Sender, const OUTSTANDING: usize> Server<S, OUTSTANDING> {
         ic: bool,
         buf: Leased<R, [u8]>,
     ) {
-        // TODO figure out if handling incoming packets while sending is neccessary.
-        //      Having dedicated driver tasks with buffering for every transport would simplify this.
-
         let mut msg_buf = [0; MAX_PAYLOAD];
         if msg_buf.len() < buf.len() {
             sys_reply(msg.sender, ServerError::NoSpace.into(), &[]);

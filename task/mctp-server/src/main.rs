@@ -5,13 +5,21 @@
 #![no_std]
 #![no_main]
 
-use ast1060_pac as device;
+#[cfg(feature = "transport_serial")]
 use core::cell::RefCell;
-use core::ops::Deref;
+#[cfg(feature = "transport_serial")]
+use core::ops::DerefMut;
 use userlib::*;
 
-use lib_ast1060_uart::Usart;
+#[cfg(any(feature = "transport_serial", feature = "serial_log"))]
+use ast1060_uart_api::Uart;
 
+#[cfg(feature = "transport_i2c")]
+use drv_i2c_api::*;
+
+#[cfg(feature = "transport_i2c")]
+mod i2c;
+#[cfg(feature = "transport_serial")]
 mod serial;
 mod server;
 use server::Server;
@@ -22,61 +30,116 @@ pub const MAX_REQUESTS: usize = 8;
 pub const MAX_LISTENERS: usize = 8;
 /// Maximum number of concurrent outstanding receive calls.
 pub const MAX_OUTSTANDING: usize = 16;
+/// The initial EID assigned to the MCTP server.
+pub const INITIAL_EID: u8 = 42;
+/// The maximum number of peers supported for I2C transport.
+pub const I2C_MAX_EIDS: u8 = 16;
+/// Own static I2C address for I2C transport.
+/// This should be made configurable in the future,
+/// or be assigned via SMBus ARP.
+pub const I2C_OWN_ADDR: u8 = 0x12;
+
+#[cfg(all(feature = "transport_serial", feature = "serial_log"))]
+compile_error!("Features 'transport_serial' and 'serial_log' cannot be enabled at the same time.");
+
+#[cfg(any(feature = "transport_serial", feature = "serial_log"))]
+task_slot!(UART, uart_driver);
+
+#[cfg(feature = "transport_i2c")]
+task_slot!(I2C, i2c_driver);
 
 #[export_name = "main"]
 fn main() -> ! {
     let mut msg_buf = [0; ipc::INCOMING_SIZE];
-    let peripherals = unsafe { device::Peripherals::steal() };
 
-    let usart = RefCell::new(Usart::from(peripherals.uart.deref()));
-    let serial_sender = serial::SerialSender::new(&usart);
+    // Initialize logging to serial first thing if enabled
+    #[cfg(feature = "serial_log")]
+    ast1060_uart_log::init(
+        Uart::new(UART.get_task_id()).unwrap_lite(),
+        log::Level::Info,
+    )
+    .unwrap_lite();
+
+    // Setup MCTP server over serial transport if enabled
+    #[cfg(feature = "transport_serial")]
+    let usart = RefCell::new(Uart::new(UART.get_task_id()).unwrap_lite());
+    #[cfg(feature = "transport_serial")]
+    let mut server: Server<_, MAX_OUTSTANDING> = {
+        let serial_sender = serial::SerialSender::new(&usart);
+        let usart = &mut usart.borrow_mut();
+        usart
+            .enable_rx_notification(notifications::RX_DATA_BIT)
+            .unwrap_lite();
+        Server::new(mctp::Eid(INITIAL_EID), 0, serial_sender)
+    };
+    #[cfg(feature = "transport_serial")]
     let mut serial_reader = mctp_stack::serial::MctpSerialHandler::new();
 
-    let mut server: Server<_, MAX_OUTSTANDING> =
-        Server::new(mctp::Eid(42), 0, serial_sender);
+    // Setup MCTP server over I2C transport if enabled
+    #[cfg(feature = "transport_i2c")]
+    let _i2c_recv = I2cDevice::new(
+        I2C.get_task_id(),
+        Controller::I2C1,
+        PortIndex(0),
+        None,
+        0x00, // Addr not used for slave mode
+    );
+    #[cfg(feature = "transport_i2c")]
+    let mut server: Server<_, MAX_OUTSTANDING> = {
+        let i2c_sender = i2c::I2cSender::new(I2C.get_task_id());
+        Server::new(mctp::Eid(INITIAL_EID), 0, i2c_sender)
+    };
+
     let state = sys_get_timer();
     server.update(state.now);
 
-    loop {
-        let msg = sys_recv_open(
-            &mut msg_buf,
-            notifications::UART_IRQ_MASK | notifications::TIMER_MASK,
-        );
+    log::info!("MCTP server started.");
 
-        if msg.sender == TaskId::KERNEL
-            && (msg.operation & notifications::UART_IRQ_MASK) != 0
-        {
-            let interrupt = usart.borrow_mut().read_interrupt_status();
-            if let Some(pkt) = serial::handle_uart_interrupt(
-                interrupt,
-                &usart,
-                &mut serial_reader,
-            ) {
-                server.stack.inbound(pkt.unwrap_lite()).unwrap_lite();
-                let state = sys_get_timer();
-                server.update(state.now);
-            }
-            sys_irq_control(notifications::UART_IRQ_MASK, true);
-            continue;
-        }
+    #[cfg(feature = "transport_serial")]
+    let notification_mask =
+        notifications::RX_DATA_MASK | notifications::TIMER_MASK;
+    #[cfg(feature = "transport_i2c")]
+    let notification_mask = notifications::TIMER_MASK;
+    loop {
+        let msg = sys_recv_open(&mut msg_buf, notification_mask);
+
+        #[cfg(feature = "transport_serial")]
+        handle_serial_transport(&msg, &mut server, &usart, &mut serial_reader);
 
         if msg.sender == TaskId::KERNEL
             && (msg.operation & notifications::TIMER_MASK) != 0
         {
+            // TODO: Multiplex timer to recv I2C packets (or implemnt interrupt-driven I2C)
             let state = sys_get_timer();
             server.update(state.now);
             continue;
         }
 
-        handle_mctp_msg(&msg_buf, msg, &mut server);
+        if msg.sender != TaskId::KERNEL {
+            handle_mctp_msg(&msg_buf, msg, &mut server);
+        }
     }
 }
 
-mod ipc {
-    use counters::*;
-    pub use mctp_api::ipc::*;
-
-    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+#[cfg(feature = "transport_serial")]
+fn handle_serial_transport<S: mctp_stack::Sender, const OUTSTANDING: usize>(
+    msg: &RecvMessage,
+    server: &mut server::Server<S, OUTSTANDING>,
+    uart: &RefCell<Uart>,
+    serial_reader: &mut mctp_stack::serial::MctpSerialHandler,
+) {
+    if msg.sender == TaskId::KERNEL
+        && (msg.operation & notifications::RX_DATA_MASK) != 0
+    {
+        let usart = &mut uart.borrow_mut();
+        let pkt = serial_reader.recv(&mut usart.deref_mut());
+        match server.stack.inbound(pkt.unwrap_lite()) {
+            Ok(_) => {}
+            Err(_) => return,
+        };
+        let state = sys_get_timer();
+        server.update(state.now);
+    }
 }
 
 fn handle_mctp_msg<S: mctp_stack::Sender, const OUTSTANDING: usize>(
@@ -150,6 +213,13 @@ fn handle_mctp_msg<S: mctp_stack::Sender, const OUTSTANDING: usize>(
             server.unbind(&recv_msg, handle);
         }
     }
+}
+
+mod ipc {
+    use counters::*;
+    pub use mctp_api::ipc::*;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
