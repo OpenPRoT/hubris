@@ -156,20 +156,42 @@ fn main() -> ! {
                 caller.reply(0usize);
                 Ok(())
             }
-            Op::CheckSlaveBuffer => {
-                // Use the same marshal format as WriteRead operations
+            Op::EnableSlaveNotification => {
+                // Enable interrupt-driven notifications
                 let (payload, caller) = msg
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
                 let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
                 
-                // Check for slave messages - for now just return count
-                // A full implementation would need to handle message data formatting
-                let temp_messages: [u8; 0] = []; // Empty for mock
-                let count = temp_messages.len();
+                // Mock implementation - would configure interrupt notifications in real hardware
+                // For now, just acknowledge the operation
+                caller.reply(0usize);
+                Ok(())
+            }
+            Op::DisableSlaveNotification => {
+                // Disable interrupt-driven notifications
+                let (payload, caller) = msg
+                    .fixed::<[u8; 4], usize>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
                 
-                caller.reply(count);
+                // Mock implementation - would disable interrupt notifications in real hardware
+                caller.reply(0usize);
+                Ok(())
+            }
+            Op::GetSlaveMessage => {
+                // Retrieve a single slave message
+                let (payload, caller) = msg
+                    .fixed::<[u8; 4], usize>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (_address, controller, _port, _segment) = Marshal::unmarshal(payload)?;
+                
+                // Mock implementation - return no message available
+                // A real implementation would read from hardware FIFO
+                caller.reply(0usize); // 0 bytes = no message
                 Ok(())
             }
         });
