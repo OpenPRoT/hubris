@@ -35,12 +35,19 @@
 //!
 //! ## Slave Mode Operations (MCTP Support)
 //!
-//! New operations that allow this device to respond to incoming I2C transactions:
+//! **Interrupt-Driven Receive** (Recommended):
 //!
 //! - [`I2cDevice::configure_slave_address`] - Set up slave address
 //! - [`I2cDevice::enable_slave_receive`] - Start listening for incoming messages
-//! - [`I2cDevice::check_slave_buffer`] - Poll for received messages
+//! - [`I2cDevice::enable_slave_notification`] - Enable interrupt notifications
+//! - [`I2cDevice::get_slave_message`] - Retrieve message on notification
+//! - [`I2cDevice::disable_slave_notification`] - Stop notifications
 //! - [`I2cDevice::disable_slave_receive`] - Stop slave mode
+//!
+//! **Legacy Polling** (Deprecated):
+//!
+//! - [`I2cDevice::check_slave_buffer`] - Poll for received messages (deprecated)
+//! - [`I2cDevice::get_slave_messages`] - Poll and parse messages (deprecated)
 //!
 //! # Examples
 //!
@@ -66,7 +73,57 @@
 //! # }
 //! ```
 //!
-//! ## MCTP Slave Configuration
+//! ## MCTP Slave Configuration (Interrupt-Driven)
+//!
+//! ```rust,no_run
+//! use drv_i2c_api::*;
+//! use userlib::*;
+//!
+//! # fn example(i2c_task: TaskId) -> Result<(), ResponseCode> {
+//! // Create device handle for MCTP endpoint
+//! let mctp_device = I2cDevice::new(
+//!     i2c_task,
+//!     Controller::I2C1,
+//!     PortIndex(0),
+//!     None,
+//!     0x1D,  // Our MCTP address
+//! );
+//!
+//! // Configure as slave to receive MCTP messages
+//! mctp_device.configure_slave_address(0x1D)?;
+//! mctp_device.enable_slave_receive()?;
+//!
+//! // Enable interrupt-driven notifications (bit 0x0001)
+//! const I2C_RX_NOTIF: u32 = 0x0001;
+//! mctp_device.enable_slave_notification(I2C_RX_NOTIF)?;
+//!
+//! // Event loop with interrupt-driven receive
+//! let mut msg_buf = [0u8; 256];
+//! loop {
+//!     let msg = sys_recv_open(&mut msg_buf, I2C_RX_NOTIF);
+//!     
+//!     if msg.sender == TaskId::KERNEL && (msg.operation & I2C_RX_NOTIF) != 0 {
+//!         // Notification: message arrived
+//!         match mctp_device.get_slave_message() {
+//!             Ok(slave_msg) => {
+//!                 // Process MCTP message from slave_msg.source_address
+//!                 handle_mctp_message(slave_msg.source_address, slave_msg.data())?;
+//!             }
+//!             Err(ResponseCode::NoSlaveMessage) => {
+//!                 // Spurious notification, continue
+//!             }
+//!             Err(e) => {
+//!                 // Handle error
+//!             }
+//!         }
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! # fn handle_mctp_message(source: u8, data: &[u8]) -> Result<(), ResponseCode> { Ok(()) }
+//! ```
+//!
+//! ## MCTP Slave Configuration (Legacy Polling - Deprecated)
 //!
 //! ```rust,no_run
 //! use drv_i2c_api::*;
@@ -86,15 +143,20 @@
 //! mctp_device.configure_slave_address(0x1D)?;
 //! mctp_device.enable_slave_receive()?;
 //!
-//! // Poll for incoming messages
-//! let mut messages = [SlaveMessage::default(); 4];
-//! let msg_count = mctp_device.get_slave_messages(&mut messages)?;
-//!
-//! for i in 0..msg_count {
-//!     let message = &messages[i];
-//!     // Process MCTP message from message.source_address
-//!     // Message data is available via message.data()
-//!     handle_mctp_message(message.source_address, message.data())?;
+//! // Poll for incoming messages (inefficient, deprecated)
+//! loop {
+//!     match mctp_device.get_slave_message() {
+//!         Ok(message) => {
+//!             // Process MCTP message from message.source_address
+//!             handle_mctp_message(message.source_address, message.data())?;
+//!         }
+//!         Err(ResponseCode::NoSlaveMessage) => {
+//!             // No message, continue polling
+//!         }
+//!         Err(e) => {
+//!             // Handle error
+//!         }
+//!     }
 //! }
 //! # Ok(())
 //! # }
@@ -714,6 +776,9 @@ impl I2cDevice {
     /// After this operation, the controller will begin buffering incoming 
     /// messages sent to its configured slave address(es).
     ///
+    /// For efficient interrupt-driven operation, call [`enable_slave_notification`]
+    /// after this to receive notifications when messages arrive.
+    ///
     /// This must be called after [`configure_slave_address`] to begin receiving
     /// slave messages.
     ///
@@ -737,9 +802,95 @@ impl I2cDevice {
     }
 
     ///
+    /// Enable interrupt-driven notifications for slave message reception.
+    /// When messages arrive at the configured slave address, the I2C driver
+    /// will send a notification to the calling task with the specified notification
+    /// mask.
+    ///
+    /// This enables efficient, interrupt-driven receive processing instead of
+    /// polling, which is critical for protocols like MCTP that require low
+    /// latency and power efficiency.
+    ///
+    /// ## Arguments
+    ///
+    /// * `notification_mask` - The notification bit(s) to set when a message arrives
+    ///
+    /// ## Requirements
+    ///
+    /// - The calling task must have the I2C driver in its task-slots
+    /// - The notification bit must be configured in the task's notifications array
+    /// - `enable_slave_receive` must have been called first
+    ///
+    /// ## Example
+    ///
+    /// ```rust,no_run
+    /// use drv_i2c_api::*;
+    /// # fn example(device: I2cDevice) -> Result<(), ResponseCode> {
+    /// // Configure slave mode
+    /// device.configure_slave_address(0x1D)?;
+    /// device.enable_slave_receive()?;
+    /// 
+    /// // Enable notifications (bit 0 in notification mask)
+    /// device.enable_slave_notification(0x0001)?;
+    ///
+    /// // In your event loop:
+    /// // if notification_received & 0x0001 {
+    /// //     let msg = device.get_slave_message()?;
+    /// //     process_message(msg);
+    /// // }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    pub fn enable_slave_notification(&self, notification_mask: u32) -> Result<(), ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::EnableSlaveNotification as u16,
+            &Marshal::marshal(&(
+                0, // Unused for slave operations
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_mut_bytes(),
+            &[Lease::from(notification_mask.as_bytes())],
+        );
+
+        self.response_code(code, ())
+    }
+
+    ///
+    /// Disable interrupt-driven notifications for slave message reception.
+    /// After this operation, the driver will stop sending notifications when
+    /// messages arrive. Messages will still be buffered and can be retrieved
+    /// via polling with [`get_slave_message`].
+    ///
+    pub fn disable_slave_notification(&self) -> Result<(), ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::DisableSlaveNotification as u16,
+            &Marshal::marshal(&(
+                0, // Unused for slave operations
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_mut_bytes(),
+            &[],
+        );
+
+        self.response_code(code, ())
+    }
+
+    ///
     /// Disable slave receive mode for this controller/port. After this
     /// operation, the controller will stop responding to slave transactions
-    /// and will not buffer incoming messages.
+    /// and will not buffer incoming messages. Notifications will also be
+    /// automatically disabled.
     ///
     pub fn disable_slave_receive(&self) -> Result<(), ResponseCode> {
         let mut response = 0_usize;
@@ -761,34 +912,114 @@ impl I2cDevice {
     }
 
     ///
-    /// Check for received slave messages and retrieve them from the internal
-    /// buffer. Returns the number of messages retrieved.
-    ///
-    /// ## Arguments
-    ///
-    /// * `buffer` - Buffer to receive the slave messages. Each message is
-    ///              formatted as: [source_addr, length, data...]
+    /// Retrieve a single slave message from the hardware receive buffer.
+    /// This operation should be called in response to a slave receive 
+    /// notification, or can be used for polling if notifications are disabled.
     ///
     /// ## Returns
     ///
-    /// The number of bytes written to the buffer, representing one or more
-    /// complete messages. Returns 0 if no messages are available.
+    /// A [`SlaveMessage`] containing the source address and message data, or
+    /// [`ResponseCode::NoSlaveMessage`] if no messages are available.
     ///
-    /// ## Message Format
+    /// ## Usage with Notifications
     ///
-    /// Each message in the buffer is formatted as:
-    /// - `[0]`: Source address (7-bit address of the master that sent this)
-    /// - `[1]`: Message length (N)
-    /// - `[2..N+1]`: Message data
+    /// ```rust,no_run
+    /// use drv_i2c_api::*;
+    /// use userlib::*;
+    /// 
+    /// # fn example(device: I2cDevice, notification_mask: u32) -> Result<(), ResponseCode> {
+    /// // Setup
+    /// device.configure_slave_address(0x1D)?;
+    /// device.enable_slave_receive()?;
+    /// device.enable_slave_notification(notification_mask)?;
     ///
-    /// Multiple messages may be returned in a single buffer if space permits.
+    /// // Event loop
+    /// loop {
+    ///     let msg = sys_recv_open(&mut buffer, notification_mask);
+    ///     
+    ///     if msg.sender == TaskId::KERNEL && (msg.operation & notification_mask) != 0 {
+    ///         // Notification received - retrieve the message
+    ///         match device.get_slave_message() {
+    ///             Ok(slave_msg) => {
+    ///                 // Process message from slave_msg.source_address
+    ///                 process(slave_msg.data());
+    ///             }
+    ///             Err(ResponseCode::NoSlaveMessage) => {
+    ///                 // Spurious notification or already processed
+    ///             }
+    ///             Err(e) => {
+    ///                 // Handle error
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// # fn process(data: &[u8]) {}
+    /// ```
     ///
+    pub fn get_slave_message(&self) -> Result<SlaveMessage, ResponseCode> {
+        let mut buffer = [0u8; 257]; // 1 byte source + 1 byte len + 255 max data
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::GetSlaveMessage as u16,
+            &Marshal::marshal(&(
+                0, // Unused for slave operations
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_mut_bytes(),
+            &[Lease::from(&mut buffer[..])],
+        );
+
+        self.response_code(code, ())?;
+
+        if response == 0 {
+            return Err(ResponseCode::NoSlaveMessage);
+        }
+
+        // Parse the message: [source_addr, length, data...]
+        if response < 2 {
+            return Err(ResponseCode::BadArg);
+        }
+
+        let source_addr = buffer[0];
+        let data_length = buffer[1] as usize;
+
+        if response < 2 + data_length {
+            return Err(ResponseCode::BadArg);
+        }
+
+        SlaveMessage::new(source_addr, &buffer[2..2 + data_length])
+            .map_err(|_| ResponseCode::BadArg)
+    }
+
+    // ================================================================
+    // DEPRECATED: Polling-based slave receive
+    // ================================================================
+
+    ///
+    /// **DEPRECATED**: Use [`get_slave_message`] with [`enable_slave_notification`] instead.
+    ///
+    /// Check for received slave messages and retrieve them from the internal
+    /// buffer. Returns the number of bytes written representing one or more messages.
+    ///
+    /// This polling-based approach is inefficient and should be replaced with
+    /// interrupt-driven notifications for better performance and power efficiency.
+    ///
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use get_slave_message() with enable_slave_notification() for interrupt-driven operation"
+    )]
     pub fn check_slave_buffer(&self, buffer: &mut [u8]) -> Result<usize, ResponseCode> {
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
-            Op::CheckSlaveBuffer as u16,
+            Op::GetSlaveMessage as u16, // Use new operation
             &Marshal::marshal(&(
                 0, // Unused for slave operations
                 self.controller,
@@ -803,18 +1034,16 @@ impl I2cDevice {
     }
 
     ///
+    /// **DEPRECATED**: Use [`get_slave_message`] with notifications instead.
+    ///
     /// Convenience method to retrieve slave messages as structured data.
     /// This parses the raw buffer from [`check_slave_buffer`] into individual
     /// [`SlaveMessage`] objects.
     ///
-    /// ## Arguments
-    ///
-    /// * `messages` - Slice to store the parsed messages
-    ///
-    /// ## Returns
-    ///
-    /// The number of messages parsed and stored in the slice.
-    ///
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use get_slave_message() directly for single-message retrieval"
+    )]
     pub fn get_slave_messages(&self, messages: &mut [SlaveMessage]) -> Result<usize, ResponseCode> {
         let mut buffer = [0u8; 1024]; // Buffer for raw message data
         let bytes_read = self.check_slave_buffer(&mut buffer)?;

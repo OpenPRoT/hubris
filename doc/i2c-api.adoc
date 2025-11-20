@@ -1,0 +1,864 @@
+= I2C API Design and Requirements
+:toc: left
+:toclevels: 3
+:sectnums:
+:source-highlighter: rouge
+
+== Overview
+
+The I2C API (`drv-i2c-api`) provides a client interface for I2C communication in Hubris applications. Unlike traditional I2C APIs that only support master mode operations, this implementation extends support to **slave mode** operations required for peer-to-peer protocols like MCTP (Management Component Transport Protocol).
+
+The API is designed around Hubris's task-based architecture, using IPC to communicate with separate I2C driver tasks that control the actual hardware.
+
+== Architecture
+
+=== Component Structure
+
+[source]
+----
+Application Task               I2C Driver Task           Hardware
+    (Client)                      (Server)
+       |                             |                      |
+       | 1. Create I2cDevice         |                      |
+       |    (controller, port, addr) |                      |
+       |                             |                      |
+       | 2. read_reg() / write()     |                      |
+       |------------------------->   |                      |
+       |         (IPC)               | 3. Hardware I/O      |
+       |                             |--------------------->|
+       |                             |<---------------------|
+       | 4. Reply with data          |                      |
+       |<-------------------------|  |                      |
+       |                             |                      |
+       | 5. enable_slave_receive()   |                      |
+       |------------------------->   | 6. Configure slave   |
+       |         (IPC)               |--------------------->|
+       |                             |                      |
+       |                             | 7. Interrupt on RX   |
+       |                             |<---------------------|
+       | 8. Notification (kernel)    |                      |
+       |<----------------------------|                      |
+       | 9. get_slave_message()      |                      |
+       |------------------------->   | 10. Read FIFO        |
+       |         (IPC)               |--------------------->|
+       | 11. Message data            |                      |
+       |<-------------------------|  |                      |
+----
+
+=== Key Design Principles
+
+1. **Task Separation**: I2C drivers run as separate tasks with memory isolation
+2. **IPC-Based Communication**: All operations use Hubris's synchronous IPC
+3. **No IDL**: Uses raw `sys_send` instead of Idol-generated code for flexibility
+4. **Type Safety**: Leverages Rust's type system and zero-copy serialization
+5. **Interrupt-Driven**: Slave mode uses notifications instead of polling
+6. **Device Identification**: 5-tuple uniquely identifies each I2C device
+
+== Device Identification
+
+Each I2C device is identified by a 5-tuple:
+
+[source,rust]
+----
+pub struct I2cDevice {
+    pub task: TaskId,              // I2C driver task
+    pub controller: Controller,     // I2C peripheral (I2C0-I2C7)
+    pub port: PortIndex,           // Pin configuration
+    pub segment: Option<(Mux, Segment)>, // Optional multiplexer
+    pub address: u8,               // 7-bit device address
+}
+----
+
+This design allows:
+- Multiple I2C controllers on the same chip
+- Multiple port configurations per controller
+- Multiplexed buses with segments
+- Clear device addressing without ambiguity
+
+== Operation Types
+
+=== Master Mode Operations
+
+Master mode operations are defined in link:../drv/i2c-types/src/lib.rs[`drv/i2c-types/src/lib.rs`]:
+
+[source,rust]
+----
+pub enum Op {
+    WriteRead = 1,          // Standard I2C transaction
+    WriteReadBlock = 2,     // SMBus block read
+    // ... slave mode operations below
+}
+----
+
+==== WriteRead (Op 1)
+
+Standard I2C write-then-read operation for register access.
+
+**Payload Structure:**
+[source]
+----
+[0]: Device address (7-bit)
+[1]: Controller index
+[2]: Port index
+[3]: Mux/segment byte (0x00 if none, or 0x80 | (mux << 4) | segment)
+
+Lease 0: Write data (register address, etc.)
+Lease 1: Read buffer
+----
+
+**Use Cases:**
+- Reading device registers
+- Writing configuration data
+- Combined write-read transactions
+
+==== WriteReadBlock (Op 2)
+
+SMBus block read where the final read operation returns variable-length data with a length byte.
+
+**Use Cases:**
+- SMBus block protocols
+- Devices that prefix data with length
+
+=== Slave Mode Operations
+
+Slave mode enables the I2C controller to act as a responder, critical for protocols like MCTP.
+
+==== ConfigureSlaveAddress (Op 3)
+
+Configure the I2C controller to respond to a specific 7-bit address.
+
+**Payload Structure:**
+[source]
+----
+[0]: Slave address (7-bit)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+----
+
+**Requirements:**
+- Address must not be reserved (see Reserved Address table)
+- Address must not already be in use
+- Controller must support slave mode
+
+**Errors:**
+- `BadSlaveAddress`: Address is reserved or invalid
+- `SlaveAddressInUse`: Address already configured
+- `SlaveNotSupported`: Hardware doesn't support slave mode
+
+==== EnableSlaveReceive (Op 4)
+
+Enable the hardware to receive messages at the configured slave address.
+
+**Payload Structure:**
+[source]
+----
+[0]: Unused (0)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+----
+
+**Behavior:**
+- Hardware begins accepting transactions to the slave address
+- Messages are buffered in hardware FIFO
+- Must be called after `ConfigureSlaveAddress`
+
+==== EnableSlaveNotification (Op 6)
+
+**NEW**: Enable interrupt-driven notifications when slave messages arrive.
+
+**Payload Structure:**
+[source]
+----
+[0]: Unused (0)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+
+Lease 0: Notification mask (u32)
+----
+
+**Behavior:**
+- I2C driver sends notification to calling task when messages arrive
+- Notification uses the provided mask (bitwise OR with task notifications)
+- Enables low-latency, power-efficient message reception
+- Must be called after `EnableSlaveReceive`
+
+**How Notifications Work:**
+The notification flow is indirect - the kernel does not deliver hardware interrupts directly to client tasks:
+
+1. Hardware interrupt fires → Kernel dispatches to I2C driver task
+2. Driver's interrupt handler reads message from hardware FIFO and buffers it
+3. Driver calls `sys_post(client_task_id, notification_mask)` to notify the client
+4. Kernel delivers the notification, unblocking client's `sys_recv_open()`
+5. Client calls `get_slave_message()` back to driver to retrieve buffered message
+
+The driver acts as an intermediary, translating hardware interrupts into task notifications using `sys_post`. This maintains task isolation while enabling interrupt-driven communication.
+
+**Task Requirements:**
+- Task must have I2C driver in `task-slots`
+- Notification bit must be in task's `notifications` array
+
+**Example Configuration:**
+[source,toml]
+----
+[tasks.mctp_server]
+task-slots = ["i2c_driver"]
+notifications = ["i2c-slave-rx", "timer"]
+----
+
+==== DisableSlaveNotification (Op 7)
+
+**NEW**: Disable interrupt-driven notifications.
+
+**Payload Structure:**
+[source]
+----
+[0]: Unused (0)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+----
+
+**Behavior:**
+- Stops sending notifications on message arrival
+- Messages still buffered (can be retrieved via polling)
+- Useful for temporarily suspending notifications
+
+==== GetSlaveMessage (Op 8)
+
+**NEW**: Retrieve a single slave message from the hardware receive buffer.
+
+**Payload Structure:**
+[source]
+----
+[0]: Unused (0)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+
+Lease 0: Receive buffer (at least 257 bytes)
+----
+
+**Response:**
+- Returns number of bytes written to buffer
+- Returns 0 if no messages available
+
+**Message Format in Buffer:**
+[source]
+----
+[0]: Source address (7-bit I2C address of sender)
+[1]: Message length (N)
+[2..N+1]: Message data
+----
+
+**Usage:**
+- Call on notification receipt for interrupt-driven mode
+- Call periodically for polling mode (not recommended)
+- Retrieves one message per call
+
+==== DisableSlaveReceive (Op 5)
+
+Disable slave receive mode.
+
+**Payload Structure:**
+[source]
+----
+[0]: Unused (0)
+[1]: Controller index
+[2]: Port index
+[3]: Reserved (0)
+----
+
+**Behavior:**
+- Hardware stops responding to slave address
+- Pending notifications are cleared
+- Buffered messages are discarded
+
+== API Methods
+
+=== Master Mode Methods
+
+Location: link:../drv/i2c-api/src/lib.rs[`drv/i2c-api/src/lib.rs`]
+
+==== read_reg<R, V>()
+
+Read a typed register value from a device.
+
+[source,rust]
+----
+pub fn read_reg<R, V>(&self, reg: R) -> Result<V, ResponseCode>
+where
+    R: IntoBytes + Immutable,
+    V: IntoBytes + FromBytes,
+----
+
+**Example:**
+[source,rust]
+----
+let temp: u16 = device.read_reg(0x00u8)?;
+----
+
+==== write<V>()
+
+Write data to a device.
+
+[source,rust]
+----
+pub fn write<V: IntoBytes + Immutable>(&self, value: V) -> Result<(), ResponseCode>
+----
+
+==== write_read_reg<R, V>()
+
+Combined write-then-read transaction.
+
+[source,rust]
+----
+pub fn write_read_reg<R, V>(
+    &self,
+    reg: R,
+    value: V,
+) -> Result<(), ResponseCode>
+----
+
+=== Slave Mode Methods
+
+==== configure_slave_address()
+
+Configure the controller to respond as a slave.
+
+[source,rust]
+----
+pub fn configure_slave_address(&self, slave_address: u8) -> Result<(), ResponseCode>
+----
+
+**Example:**
+[source,rust]
+----
+let device = I2cDevice::new(i2c_task, Controller::I2C1, PortIndex(0), None, 0x1D);
+device.configure_slave_address(0x1D)?;
+----
+
+==== enable_slave_receive()
+
+Begin buffering incoming slave messages.
+
+[source,rust]
+----
+pub fn enable_slave_receive(&self) -> Result<(), ResponseCode>
+----
+
+==== enable_slave_notification()
+
+**NEW**: Enable interrupt-driven notifications.
+
+[source,rust]
+----
+pub fn enable_slave_notification(&self, notification_mask: u32) -> Result<(), ResponseCode>
+----
+
+**Example:**
+[source,rust]
+----
+const I2C_RX_NOTIF: u32 = 0x0001;
+device.enable_slave_notification(I2C_RX_NOTIF)?;
+
+// In event loop
+loop {
+    let msg = sys_recv_open(&mut buf, I2C_RX_NOTIF);
+    if msg.sender == TaskId::KERNEL && (msg.operation & I2C_RX_NOTIF) != 0 {
+        let slave_msg = device.get_slave_message()?;
+        process(slave_msg);
+    }
+}
+----
+
+==== disable_slave_notification()
+
+**NEW**: Disable interrupt-driven notifications.
+
+[source,rust]
+----
+pub fn disable_slave_notification(&self) -> Result<(), ResponseCode>
+----
+
+==== get_slave_message()
+
+**NEW**: Retrieve one message from hardware buffer.
+
+[source,rust]
+----
+pub fn get_slave_message(&self) -> Result<SlaveMessage, ResponseCode>
+----
+
+**Returns:**
+- `Ok(SlaveMessage)`: Message retrieved successfully
+- `Err(NoSlaveMessage)`: No message available
+- `Err(...)`: Other errors
+
+==== disable_slave_receive()
+
+Stop slave mode operation.
+
+[source,rust]
+----
+pub fn disable_slave_receive(&self) -> Result<(), ResponseCode>
+----
+
+=== Deprecated Methods
+
+==== check_slave_buffer()
+
+**DEPRECATED**: Use `get_slave_message()` with notifications instead.
+
+[source,rust]
+----
+#[deprecated(since = "0.2.0")]
+pub fn check_slave_buffer(&self, buffer: &mut [u8]) -> Result<usize, ResponseCode>
+----
+
+**Why Deprecated:**
+- Requires polling (inefficient)
+- High latency
+- Wastes CPU cycles
+- Poor power efficiency
+
+==== get_slave_messages()
+
+**DEPRECATED**: Use `get_slave_message()` directly.
+
+[source,rust]
+----
+#[deprecated(since = "0.2.0")]
+pub fn get_slave_messages(&self, messages: &mut [SlaveMessage]) -> Result<usize, ResponseCode>
+----
+
+**Why Deprecated:**
+- Polling-based
+- Multi-message retrieval not needed with notifications
+
+== Error Codes
+
+Defined in link:../drv/i2c-types/src/lib.rs[`drv/i2c-types/src/lib.rs`]:
+
+[cols="1,3"]
+|===
+|Error Code |Description
+
+|`BadResponse`
+|Invalid response from server
+
+|`BadArg`
+|Invalid argument in request
+
+|`NoDevice`
+|I2C device doesn't exist
+
+|`BadController`
+|Invalid controller index
+
+|`ReservedAddress`
+|Address is reserved by I2C spec
+
+|`BadPort`
+|Invalid port index
+
+|`NoRegister`
+|Device doesn't have requested register
+
+|`BusReset`
+|I2C bus was reset during operation
+
+|`BusLocked`
+|I2C bus locked up and was reset
+
+|`ControllerBusy`
+|Controller appeared busy and was reset
+
+|`BusError`
+|General I2C bus error
+
+|`OperationNotSupported`
+|Operation not supported on this hardware
+
+|`TooMuchData`
+|Data exceeds buffer capacity
+
+|`SlaveAddressInUse`
+|Slave address already configured
+
+|`SlaveNotSupported`
+|Slave mode not supported on controller
+
+|`SlaveNotEnabled`
+|Slave receive not enabled
+
+|`SlaveBufferFull`
+|Hardware buffer full, messages dropped
+
+|`BadSlaveAddress`
+|Invalid slave address (reserved or out of range)
+
+|`SlaveConfigurationFailed`
+|Hardware failed to configure slave mode
+
+|`NoSlaveMessage`
+|No slave message available to retrieve
+
+|`NotificationFailed`
+|Failed to register notification
+|===
+
+== Reserved I2C Addresses
+
+Per I2C specification, certain addresses are reserved:
+
+[cols="1,2,3"]
+|===
+|Address (7-bit) |Binary |Purpose
+
+|0x00
+|0000000
+|General Call
+
+|0x01
+|0000001
+|CBUS Address
+
+|0x02
+|0000010
+|Future Bus Reserved
+
+|0x03
+|0000011
+|Future Purposes
+
+|0x04-0x07
+|000010x
+|High Speed Reserved
+
+|0x78-0x7B
+|111110x
+|10-bit Addressing
+
+|0x7C-0x7F
+|111111x
+|Reserved
+|===
+
+The API will reject attempts to use reserved addresses in `configure_slave_address()`.
+
+== Usage Patterns
+
+=== Standard Master Operation
+
+[source,rust]
+----
+use drv_i2c_api::*;
+use userlib::TaskId;
+
+// Create device handle
+let sensor = I2cDevice::new(
+    i2c_task,
+    Controller::I2C1,
+    PortIndex(0),
+    None,  // No multiplexer
+    0x48,  // Temperature sensor address
+);
+
+// Read temperature register
+let temp: u16 = sensor.read_reg(0x00u8)?;
+
+// Write configuration
+sensor.write_read_reg(0x01u8, 0x80u8)?;
+----
+
+=== Interrupt-Driven Slave Mode (Recommended)
+
+[source,rust]
+----
+use drv_i2c_api::*;
+use userlib::*;
+
+task_slot!(I2C, i2c_driver);
+
+const I2C_RX_NOTIF: u32 = 0x0001;
+
+fn main() -> ! {
+    // Setup slave mode
+    let device = I2cDevice::new(
+        I2C.get_task_id(),
+        Controller::I2C1,
+        PortIndex(0),
+        None,
+        0x1D,  // Our slave address
+    );
+    
+    device.configure_slave_address(0x1D).unwrap_lite();
+    device.enable_slave_receive().unwrap_lite();
+    device.enable_slave_notification(I2C_RX_NOTIF).unwrap_lite();
+    
+    let mut msg_buf = [0u8; 256];
+    
+    loop {
+        let msg = sys_recv_open(&mut msg_buf, I2C_RX_NOTIF);
+        
+        if msg.sender == TaskId::KERNEL 
+            && (msg.operation & I2C_RX_NOTIF) != 0 
+        {
+            // Notification: message arrived
+            match device.get_slave_message() {
+                Ok(slave_msg) => {
+                    // Process immediately
+                    let source = slave_msg.source_address;
+                    let data = slave_msg.data();
+                    handle_message(source, data);
+                }
+                Err(ResponseCode::NoSlaveMessage) => {
+                    // Spurious notification, continue
+                }
+                Err(e) => {
+                    // Handle error
+                }
+            }
+        }
+    }
+}
+
+fn handle_message(source: u8, data: &[u8]) {
+    // Process received message
+}
+----
+
+=== Polling Mode (Legacy - Not Recommended)
+
+[source,rust]
+----
+use drv_i2c_api::*;
+
+// Setup slave mode
+device.configure_slave_address(0x1D)?;
+device.enable_slave_receive()?;
+
+// Poll for messages (inefficient!)
+loop {
+    match device.get_slave_message() {
+        Ok(message) => {
+            process_message(message);
+        }
+        Err(ResponseCode::NoSlaveMessage) => {
+            // No message, continue polling
+            // This wastes CPU and power!
+        }
+        Err(e) => {
+            // Handle error
+        }
+    }
+}
+----
+
+== Design Rationale
+
+=== Why Not Use Idol?
+
+The I2C API uses raw `sys_send` instead of Idol-generated IPC for several reasons:
+
+1. **Flexibility**: Variable-length lease handling without code generation complexity
+2. **Legacy**: Predates some Idol features, works well
+3. **Performance**: Direct control over serialization and IPC layout
+4. **Simplicity**: Easier to understand for embedded developers
+
+However, future work might consider Idol for consistency with other APIs.
+
+=== Why Separate Operations for Notifications?
+
+Rather than automatically enabling notifications with `enable_slave_receive()`, we use a separate operation:
+
+**Advantages:**
+- Allows polling mode without notifications (backwards compatible)
+- Client controls when notifications start (after setup complete)
+- Can change notification mask without disabling slave mode
+- Clear separation of concerns
+
+**Implementation:**
+[source,rust]
+----
+device.enable_slave_receive()?;      // Hardware starts receiving
+device.enable_slave_notification(mask)?;  // Notifications enabled
+----
+
+=== Why Single Message Retrieval?
+
+`GetSlaveMessage` returns one message at a time instead of batching multiple messages:
+
+**Rationale:**
+- Natural for interrupt-driven processing (one notification → one message)
+- Simplifies buffer management
+- Reduces latency (process immediately)
+- Prevents stale data accumulation
+- Matches hardware FIFO behavior
+
+**Performance:**
+- Each notification typically corresponds to one message received
+- Subsequent messages trigger new notifications
+- No need to poll for remaining messages
+
+=== Why Deprecate Instead of Remove?
+
+Old polling methods are deprecated but not removed:
+
+**Rationale:**
+- Backwards compatibility with existing code
+- Allows gradual migration
+- Provides fallback if hardware doesn't support interrupts
+- Clear migration path with deprecation warnings
+
+## Requirements for Driver Implementation
+
+I2C driver tasks implementing this API must:
+
+=== Required Operations
+
+1. **Implement all Op enum variants** defined in `drv-i2c-types`
+2. **Handle IPC marshalling** for 5-tuple device identification
+3. **Support leases** for variable-length data transfer
+4. **Return proper error codes** from `ResponseCode` enum
+
+=== Slave Mode Requirements
+
+1. **Hardware Configuration**:
+   - Configure slave address in I2C controller
+   - Enable slave receive mode in hardware
+   - Configure receive FIFO or buffers
+
+2. **Interrupt Handling**:
+   - Register slave RX interrupt handler
+   - Read message data from hardware on interrupt
+   - Store notification mask per controller/port
+
+3. **Notification Delivery**:
+   - Send notification to client task on message arrival using `sys_post(client_task, mask)`
+   - Track which task to notify (stored during `EnableSlaveNotification`)
+   - Handle spurious interrupts gracefully
+   - Note: Driver acts as intermediary between hardware interrupt and client notification
+
+4. **Message Buffering**:
+   - Buffer at least one complete message
+   - Handle hardware FIFO overflow
+   - Implement proper flow control
+
+5. **State Management**:
+   - Track slave address per controller/port
+   - Track notification state per controller/port
+   - Handle task restarts/generation changes
+
+=== Error Handling Requirements
+
+1. **Bus Errors**: Reset and recover from bus lockups
+2. **Invalid Addresses**: Reject reserved addresses
+3. **Resource Conflicts**: Detect address/port conflicts
+4. **Hardware Limitations**: Report unsupported features clearly
+
+=== Example Driver Skeleton
+
+[source,rust]
+----
+fn handle_enable_slave_notification(
+    controller: Controller,
+    port: PortIndex,
+    notification_mask: u32,
+    caller_task: TaskId,
+) -> Result<(), ResponseCode> {
+    // 1. Validate controller supports slave mode
+    if !hardware_supports_slave(controller) {
+        return Err(ResponseCode::SlaveNotSupported);
+    }
+    
+    // 2. Store notification info
+    self.slave_notifications
+        .insert((controller, port), (caller_task, notification_mask));
+    
+    // 3. Enable interrupt in hardware
+    hardware_enable_slave_rx_interrupt(controller)?;
+    
+    Ok(())
+}
+
+fn slave_rx_interrupt_handler(&mut self, controller: Controller) {
+    // 1. Read message from hardware FIFO
+    let message = hardware_read_slave_message(controller);
+    
+    // 2. Buffer the message
+    self.slave_buffers.insert(controller, message);
+    
+    // 3. Post notification to client
+    if let Some((task, mask)) = self.slave_notifications.get(controller) {
+        sys_post(*task, *mask);
+    }
+}
+----
+
+== Future Enhancements
+
+=== Potential Improvements
+
+1. **Multi-Address Slave Mode**:
+   - Support multiple slave addresses per controller
+   - Useful for address translation or proxying
+
+2. **SMBus ARP Support**:
+   - Address Resolution Protocol
+   - Dynamic address assignment
+
+3. **Clock Stretching Control**:
+   - Fine-grained control over clock stretching behavior
+   - Timeout configuration
+
+4. **Enhanced Diagnostics**:
+   - Transaction counters
+   - Error statistics
+   - Performance metrics
+
+5. **DMA Support**:
+   - Large transfer optimization
+   - Reduced CPU overhead
+
+6. **Multi-Master Arbitration**:
+   - Better support for multi-master scenarios
+   - Arbitration loss handling
+
+=== Migration to Idol
+
+Future versions might migrate to Idol for consistency:
+
+**Advantages:**
+- Automatic client/server stub generation
+- Type-safe IPC
+- Standard error handling
+- Built-in retry logic
+
+**Challenges:**
+- Lease handling complexity
+- Migration path for existing code
+- Performance implications
+
+== Related Documentation
+
+- link:mctp-i2c-transport.adoc[MCTP I2C Transport Design]
+- link:ipc.adoc[Hubris IPC System]
+- link:guide/drivers.adoc[Driver Development Guide]
+- link:guide/servers.adoc[Server Implementation Guide]
+
+== Conclusion
+
+The I2C API provides a robust, type-safe interface for I2C communication in Hubris applications. The recent addition of interrupt-driven slave mode support enables efficient implementation of peer-to-peer protocols like MCTP while maintaining backwards compatibility with polling-based code.
+
+Key design decisions prioritize:
+- **Safety**: Memory isolation and type safety
+- **Performance**: Interrupt-driven operation
+- **Flexibility**: Support for both master and slave modes
+- **Maintainability**: Clear operation semantics and error handling
+- **Compatibility**: Gradual migration path from polling to notifications
+
+This design serves as a foundation for reliable I2C communication in embedded systems requiring both traditional peripheral access and modern management protocols.

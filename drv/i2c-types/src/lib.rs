@@ -101,6 +101,9 @@ pub enum Op {
     /// After this operation, the controller will begin buffering incoming 
     /// messages sent to its configured slave address(es).
     ///
+    /// When used with `EnableSlaveNotification`, the controller will send
+    /// notifications when messages arrive instead of requiring polling.
+    ///
     /// This must be called after `ConfigureSlaveAddress` to begin receiving
     /// slave messages.
     EnableSlaveReceive = 4,
@@ -110,18 +113,70 @@ pub enum Op {
     /// and will not buffer incoming messages.
     DisableSlaveReceive = 5,
 
-    /// Check for received slave messages and retrieve them from the internal
-    /// buffer. Returns the number of messages retrieved and their data.
+    /// Enable interrupt-driven notifications for slave message reception.
+    /// When messages arrive at the configured slave address, the I2C driver
+    /// will send a notification to the specified task with the given notification
+    /// bit.
     ///
-    /// The caller should provide a sufficient buffer to receive multiple
-    /// messages. Each message is formatted as:
+    /// This enables efficient, interrupt-driven receive processing instead of
+    /// polling, which is critical for protocols like MCTP that require low
+    /// latency and power efficiency.
+    ///
+    /// The payload should contain:
+    /// - `[0]`: Controller index
+    /// - `[1]`: Port index
+    /// - `[2]`: Reserved (0)
+    /// - `[3]`: Reserved (0)
+    /// - Lease 0: Notification mask (u32) to use when signaling the client
+    ///
+    /// Must be called after `EnableSlaveReceive` to receive interrupt-driven
+    /// notifications. The client task must be configured to receive notifications
+    /// from the I2C driver in its app.toml task-slots configuration.
+    ///
+    /// ## Example Configuration
+    ///
+    /// ```toml
+    /// [tasks.mctp_server]
+    /// task-slots = ["i2c_driver"]
+    /// notifications = ["i2c-slave-rx", "timer"]
+    /// ```
+    ///
+    /// The I2C driver will post the notification when:
+    /// - A complete message has been received to the slave address
+    /// - The hardware receive buffer is ready to be read
+    /// - An error occurs during slave reception
+    EnableSlaveNotification = 6,
+
+    /// Disable interrupt-driven notifications for slave message reception.
+    /// After this operation, the driver will stop sending notifications when
+    /// messages arrive, and the client must use `GetSlaveMessage` polling
+    /// or re-enable notifications.
+    DisableSlaveNotification = 7,
+
+    /// Retrieve a single slave message from the hardware receive buffer.
+    /// This operation should be called in response to a slave receive 
+    /// notification, or can be used for polling if notifications are disabled.
+    ///
+    /// The payload should contain:
+    /// - `[0]`: Reserved (0)
+    /// - `[1]`: Controller index
+    /// - `[2]`: Port index
+    /// - `[3]`: Reserved (0)
+    /// - Lease 0: Buffer to receive message data
+    ///
+    /// Returns the number of bytes written to the buffer, representing one
+    /// complete message. Returns 0 if no messages are available.
+    ///
+    /// ## Message Format (in lease buffer)
+    ///
     /// - `[0]`: Source address (7-bit address of the master that sent this)
-    /// - `[1]`: Message length
-    /// - `[2..N]`: Message data
+    /// - `[1]`: Message length (N)
+    /// - `[2..N+1]`: Message data
     ///
-    /// Returns the total number of bytes written to the buffer, or 0 if no
-    /// messages are available.
-    CheckSlaveBuffer = 6,
+    /// Unlike the old `CheckSlaveBuffer`, this returns a single message per
+    /// call to maintain compatibility with interrupt-driven processing where
+    /// each notification typically corresponds to one message.
+    GetSlaveMessage = 8,
 }
 
 /// The response code returned from the I2C server.  These response codes pretty
@@ -207,6 +262,10 @@ pub enum ResponseCode {
     BadSlaveAddress,
     /// Slave mode configuration failed due to hardware limitations
     SlaveConfigurationFailed,
+    /// No slave message available
+    NoSlaveMessage,
+    /// Notification registration failed
+    NotificationFailed,
 }
 
 ///
