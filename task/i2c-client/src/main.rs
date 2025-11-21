@@ -141,18 +141,53 @@ fn run_slave_mode_tests(device: &I2cDevice) {
     uart_send(if enable_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
     ringbuf_entry!(Trace::SlaveOpResult(2, enable_result.is_ok()));
     
-    // Test 3: Check slave buffer (should work even if no messages)
-    uart_send(b"  Test 3: check_slave_buffer... ");
-    let mut slave_buffer = [0u8; 64];
-    let check_result = device.check_slave_buffer(&mut slave_buffer);
-    uart_send(if check_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
-    ringbuf_entry!(Trace::SlaveOpResult(3, check_result.is_ok()));
+    // Test 3: Enable slave notifications (new interrupt-driven API)
+    uart_send(b"  Test 3: enable_slave_notification... ");
+    const I2C_NOTIF: u32 = 0x0001;
+    let notify_result = device.enable_slave_notification(I2C_NOTIF);
+    uart_send(if notify_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
+    ringbuf_entry!(Trace::SlaveOpResult(3, notify_result.is_ok()));
     
-    // Test 4: Disable slave receive mode
-    uart_send(b"  Test 4: disable_slave_receive... ");
+    // Test 4: Get slave message (should return NoSlaveMessage if none available)
+    uart_send(b"  Test 4: get_slave_message... ");
+    let msg_result = device.get_slave_message();
+    let test_passed = match msg_result {
+        Ok(_) => {
+            uart_send(b"PASS (message received)\r\n");
+            true
+        }
+        Err(ResponseCode::NoSlaveMessage) => {
+            uart_send(b"PASS (no message, expected)\r\n");
+            true
+        }
+        Err(_) => {
+            uart_send(b"FAIL (unexpected error)\r\n");
+            false
+        }
+    };
+    ringbuf_entry!(Trace::SlaveOpResult(4, test_passed));
+    
+    // Test 5: Disable slave notifications
+    uart_send(b"  Test 5: disable_slave_notification... ");
+    let disable_notify_result = device.disable_slave_notification();
+    uart_send(if disable_notify_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
+    ringbuf_entry!(Trace::SlaveOpResult(5, disable_notify_result.is_ok()));
+    
+    // Test 6: Disable slave receive mode
+    uart_send(b"  Test 6: disable_slave_receive... ");
     let disable_result = device.disable_slave_receive();
     uart_send(if disable_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
-    ringbuf_entry!(Trace::SlaveOpResult(4, disable_result.is_ok()));
+    ringbuf_entry!(Trace::SlaveOpResult(6, disable_result.is_ok()));
+    
+    // Test 7 (Optional): Test deprecated polling API for backward compatibility
+    uart_send(b"  Test 7: check_slave_buffer (deprecated)... ");
+    #[allow(deprecated)]
+    {
+        let mut slave_buffer = [0u8; 64];
+        let check_result = device.check_slave_buffer(&mut slave_buffer);
+        uart_send(if check_result.is_ok() { b"PASS\r\n" } else { b"FAIL\r\n" });
+        ringbuf_entry!(Trace::SlaveOpResult(7, check_result.is_ok()));
+    }
     
     ringbuf_entry!(Trace::TestComplete(2));
 }
