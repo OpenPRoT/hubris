@@ -30,7 +30,7 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = ["mock-only"]
 stacksize = 2048
-notifications = ["i2c-irq"]
+notifications = ["i2c-irq", "timer"]
 
 [tasks.i2c_client]
 name = "task-i2c-client"

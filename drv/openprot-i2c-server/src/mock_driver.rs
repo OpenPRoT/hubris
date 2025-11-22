@@ -21,6 +21,8 @@ pub struct MockI2cDriver {
     slave_receive_enabled: bool,
     /// Mock slave message buffer (minimal size for testing)
     slave_messages: heapless::Vec<SlaveMessage, 4>,
+    /// Message counter for generating unique test messages
+    message_counter: u8,
 }
 
 impl MockI2cDriver {
@@ -32,6 +34,7 @@ impl MockI2cDriver {
             slave_config: None,
             slave_receive_enabled: false,
             slave_messages: heapless::Vec::new(),
+            message_counter: 0,
         }
     }
 
@@ -85,6 +88,7 @@ impl MockI2cDriver {
         self.slave_config = None;
         self.slave_receive_enabled = false;
         self.slave_messages.clear();
+        self.message_counter = 0;
     }
     
     /// Get the number of transactions processed
@@ -92,6 +96,40 @@ impl MockI2cDriver {
     /// Useful for verifying expected number of I2C operations in tests
     pub fn transaction_count(&self) -> u32 {
         self.transaction_counter
+    }
+    
+    /// Inject a test slave message into the buffer
+    /// 
+    /// Generates a message with a recognizable pattern for testing:
+    /// - Byte 0: 0xAA (magic marker)
+    /// - Byte 1: counter (sequence number)
+    /// - Byte 2: 0x55 (magic marker)
+    /// 
+    /// This method is called by the timer handler to simulate incoming
+    /// I2C slave messages from an external master.
+    pub fn inject_slave_message(&mut self) -> Result<(), ResponseCode> {
+        if !self.slave_receive_enabled {
+            return Err(ResponseCode::SlaveNotEnabled);
+        }
+        
+        // Check if buffer is full
+        if self.slave_messages.is_full() {
+            return Err(ResponseCode::SlaveBufferFull);
+        }
+        
+        // Create test message with recognizable pattern
+        let mut data = [0u8; 255];
+        data[0] = 0xAA;                    // Magic marker
+        data[1] = self.message_counter;    // Sequence number for tracking
+        data[2] = 0x55;                    // Magic marker
+        
+        let msg = SlaveMessage::new(0x42, &data[..3])?;
+        self.slave_messages.push(msg).map_err(|_| ResponseCode::SlaveBufferFull)?;
+        
+        // Increment counter for next message
+        self.message_counter = self.message_counter.wrapping_add(1);
+        
+        Ok(())
     }
 }
 

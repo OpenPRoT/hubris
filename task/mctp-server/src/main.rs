@@ -77,7 +77,7 @@ fn main() -> ! {
 
     // Setup MCTP server over I2C transport if enabled
     #[cfg(feature = "transport_i2c")]
-    let _i2c_recv = I2cDevice::new(
+    let i2c_recv = I2cDevice::new(
         I2C.get_task_id(),
         Controller::I2C1,
         PortIndex(0),
@@ -87,6 +87,9 @@ fn main() -> ! {
     #[cfg(feature = "transport_i2c")]
     let mut server: Server<_, MAX_OUTSTANDING> = {
         let i2c_sender = i2c::I2cSender::new(I2C.get_task_id());
+        i2c_recv.configure_slave_address(I2C_OWN_ADDR).unwrap_lite();
+        i2c_recv.enable_slave_receive().unwrap_lite();
+        i2c_recv.enable_slave_notification(notifications::I2C_SLAVE_MASK).unwrap_lite();
         Server::new(mctp::Eid(INITIAL_EID), 0, i2c_sender)
     };
 
@@ -99,17 +102,19 @@ fn main() -> ! {
     let notification_mask =
         notifications::RX_DATA_MASK | notifications::TIMER_MASK;
     #[cfg(feature = "transport_i2c")]
-    let notification_mask = notifications::TIMER_MASK;
+    let notification_mask = notifications::TIMER_MASK | notifications::I2C_SLAVE_MASK;
     loop {
         let msg = sys_recv_open(&mut msg_buf, notification_mask);
 
         #[cfg(feature = "transport_serial")]
         handle_serial_transport(&msg, &mut server, &usart, &mut serial_reader);
 
+        #[cfg(feature = "transport_i2c")]
+        handle_i2c_transport(&msg, &mut server, &i2c_recv);
+
         if msg.sender == TaskId::KERNEL
             && (msg.operation & notifications::TIMER_MASK) != 0
         {
-            // TODO: Multiplex timer to recv I2C packets (or implemnt interrupt-driven I2C)
             let state = sys_get_timer();
             server.update(state.now);
             continue;
@@ -137,6 +142,41 @@ fn handle_serial_transport<S: mctp_stack::Sender, const OUTSTANDING: usize>(
             Ok(_) => {}
             Err(_) => return,
         };
+        let state = sys_get_timer();
+        server.update(state.now);
+    }
+}
+
+#[cfg(feature = "transport_i2c")]
+fn handle_i2c_transport<S: mctp_stack::Sender, const OUTSTANDING: usize>(
+    msg: &RecvMessage,
+    server: &mut server::Server<S, OUTSTANDING>,
+    i2c: &I2cDevice,
+) {
+    if msg.sender == TaskId::KERNEL
+        && (msg.operation & notifications::I2C_SLAVE_MASK) != 0
+    {
+        // Drain all available messages following BKM pattern
+        loop {
+            match i2c.get_slave_message() {
+                Ok(slave_msg) => {
+                    // Process the I2C slave message - extract data slice
+                    let data = &slave_msg.data[..slave_msg.data_length as usize];
+                    match server.stack.inbound(data) {
+                        Ok(_) => {}
+                        Err(_) => continue,
+                    };
+                }
+                Err(ResponseCode::NoSlaveMessage) => {
+                    // All messages drained, exit loop
+                    break;
+                }
+                Err(_) => {
+                    // Unexpected error, exit loop
+                    break;
+                }
+            }
+        }
         let state = sys_get_timer();
         server.update(state.now);
     }

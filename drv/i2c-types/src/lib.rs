@@ -430,6 +430,16 @@ impl SlaveMessage {
     }
 }
 
+impl Default for SlaveMessage {
+    fn default() -> Self {
+        Self {
+            source_address: 0,
+            data_length: 0,
+            data: [0; 255],
+        }
+    }
+}
+
 /// Configuration for I2C slave mode operation
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
 pub struct SlaveConfig {

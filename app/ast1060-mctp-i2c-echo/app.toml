@@ -38,7 +38,7 @@ max-sizes = {flash = 32867, ram = 16384}
 start = true
 stacksize = 12288
 task-slots = ["uart_driver", "i2c_driver"]
-notifications = ["rx-data", "timer"]
+notifications = ["rx-data", "timer", "i2c-slave"]
 features = ["serial_log", "transport_i2c"]
 
 [tasks.uart_driver]
