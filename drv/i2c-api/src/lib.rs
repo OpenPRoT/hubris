@@ -118,11 +118,11 @@
 //! # fn handle_mctp_message(source: u8, data: &[u8]) -> Result<(), ResponseCode> { Ok(()) }
 //! ```
 //!
-//! ## MCTP Slave Configuration (Legacy Polling - Deprecated)
+//! ## MCTP Slave Configuration (Interrupt-Driven)
 //!
 //! ```rust,no_run
 //! use drv_i2c_api::*;
-//! use userlib::TaskId;
+//! use userlib::*;
 //!
 //! # fn example(i2c_task: TaskId) -> Result<(), ResponseCode> {
 //! // Create device handle for MCTP endpoint
@@ -138,18 +138,29 @@
 //! mctp_device.configure_slave_address(0x1D)?;
 //! mctp_device.enable_slave_receive()?;
 //!
-//! // Poll for incoming messages (inefficient, deprecated)
+//! // Enable interrupt-driven notifications (use build-generated constant)
+//! // In app.toml: notifications = ["i2c-rx"]
+//! // Generates: notifications::I2C_RX_MASK
+//! mctp_device.enable_slave_notification(notifications::I2C_RX_BIT)?;
+//!
+//! // Event loop with interrupt-driven receive
+//! let mut msg_buf = [0u8; 256];
 //! loop {
-//!     match mctp_device.get_slave_message() {
-//!         Ok(message) => {
-//!             // Process MCTP message from message.source_address
-//!             handle_mctp_message(message.source_address, message.data())?;
-//!         }
-//!         Err(ResponseCode::NoSlaveMessage) => {
-//!             // No message, continue polling
-//!         }
-//!         Err(e) => {
-//!             // Handle error
+//!     let msg = sys_recv_open(&mut msg_buf, notifications::I2C_RX_MASK);
+//!     
+//!     if msg.sender == TaskId::KERNEL && (msg.operation & notifications::I2C_RX_MASK) != 0 {
+//!         // Notification: message arrived via hardware interrupt
+//!         match mctp_device.get_slave_message() {
+//!             Ok(slave_msg) => {
+//!                 // Process MCTP message from slave_msg.source_address
+//!                 handle_mctp_message(slave_msg.source_address, slave_msg.data())?;
+//!             }
+//!             Err(ResponseCode::NoSlaveMessage) => {
+//!                 // Spurious notification, continue
+//!             }
+//!             Err(e) => {
+//!                 // Handle error
+//!             }
 //!         }
 //!     }
 //! }
