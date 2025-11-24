@@ -21,7 +21,7 @@
 //!
 //! # Extended Capabilities
 //!
-//! This crate provides both traditional master operations and new slave mode 
+//! This crate provides both traditional master operations and new slave mode
 //! operations for peer-to-peer protocols like MCTP:
 //!
 //! ## Master Mode Operations
@@ -741,7 +741,7 @@ impl I2cDevice {
     // ================================================================
 
     ///
-    /// Configure this I2C controller/port to act as a slave device with the 
+    /// Configure this I2C controller/port to act as a slave device with the
     /// specified address. This enables the controller to respond to incoming
     /// I2C transactions from other masters on the bus.
     ///
@@ -758,9 +758,12 @@ impl I2cDevice {
     /// Returns [`ResponseCode::SlaveAddressInUse`] if the address is already configured.
     /// Returns [`ResponseCode::SlaveNotSupported`] if slave mode is not supported on this controller.
     ///
-    pub fn configure_slave_address(&self, slave_address: u8) -> Result<(), ResponseCode> {
+    pub fn configure_slave_address(
+        &self,
+        slave_address: u8,
+    ) -> Result<(), ResponseCode> {
         let mut response = 0_usize;
-        
+
         let (code, _) = sys_send(
             self.task,
             Op::ConfigureSlaveAddress as u16,
@@ -779,7 +782,7 @@ impl I2cDevice {
 
     ///
     /// Enable slave receive mode for this controller/port combination.
-    /// After this operation, the controller will begin buffering incoming 
+    /// After this operation, the controller will begin buffering incoming
     /// messages sent to its configured slave address(es).
     ///
     /// For efficient interrupt-driven operation, call [`enable_slave_notification`]
@@ -835,7 +838,7 @@ impl I2cDevice {
     /// // Configure slave mode
     /// device.configure_slave_address(0x1D)?;
     /// device.enable_slave_receive()?;
-    /// 
+    ///
     /// // Enable notifications (bit 0 in notification mask)
     /// device.enable_slave_notification(0x0001)?;
     ///
@@ -848,7 +851,10 @@ impl I2cDevice {
     /// # }
     /// ```
     ///
-    pub fn enable_slave_notification(&self, notification_mask: u32) -> Result<(), ResponseCode> {
+    pub fn enable_slave_notification(
+        &self,
+        notification_mask: u32,
+    ) -> Result<(), ResponseCode> {
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -919,7 +925,7 @@ impl I2cDevice {
 
     ///
     /// Retrieve a single slave message from the hardware receive buffer.
-    /// This operation should be called in response to a slave receive 
+    /// This operation should be called in response to a slave receive
     /// notification, or can be used for polling if notifications are disabled.
     ///
     /// ## Returns
@@ -932,7 +938,7 @@ impl I2cDevice {
     /// ```rust,no_run
     /// use drv_i2c_api::*;
     /// use userlib::*;
-    /// 
+    ///
     /// # fn example(device: I2cDevice, notification_mask: u32) -> Result<(), ResponseCode> {
     /// // Setup
     /// device.configure_slave_address(0x1D)?;
@@ -1006,6 +1012,4 @@ impl I2cDevice {
     // ================================================================
     // DEPRECATED: Polling-based slave receive
     // ================================================================
-
-
 }
