@@ -30,18 +30,26 @@ Application Task               I2C Driver Task           Hardware
        | 4. Reply with data          |                      |
        |<-------------------------|  |                      |
        |                             |                      |
-       | 5. enable_slave_receive()   |                      |
-       |------------------------->   | 6. Configure slave   |
+       | 5. configure_slave_address()|                      |
+       |------------------------->   | 6. Set slave addr    |
        |         (IPC)               |--------------------->|
        |                             |                      |
-       |                             | 7. Interrupt on RX   |
-       |                             |<---------------------|
-       | 8. Notification (kernel)    |                      |
-       |<----------------------------|                      |
-       | 9. get_slave_message()      |                      |
-       |------------------------->   | 10. Read FIFO        |
+       | 7. enable_slave_receive()   |                      |
+       |------------------------->   | 8. Enable slave RX   |
        |         (IPC)               |--------------------->|
-       | 11. Message data            |                      |
+       |                             |                      |
+       | 9. enable_slave_notification()|                    |
+       |------------------------->   | 10. Enable interrupt |
+       |         (IPC)               |--------------------->|
+       |                             |                      |
+       |                             | 11. Interrupt on RX  |
+       |                             |<---------------------|
+       | 12. Notification (kernel)   |                      |
+       |<----------------------------|                      |
+       | 13. get_slave_message()     |                      |
+       |------------------------->   | 14. Read FIFO        |
+       |         (IPC)               |--------------------->|
+       | 15. Message data            |                      |
        |<-------------------------|  |                      |
 ----
 

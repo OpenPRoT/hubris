@@ -77,17 +77,23 @@ fn main() -> ! {
 
     // Setup MCTP server over I2C transport if enabled
     #[cfg(feature = "transport_i2c")]
-    let _i2c_recv = I2cDevice::new(
-        I2C.get_task_id(),
-        Controller::I2C1,
-        PortIndex(0),
-        None,
-        0x00, // Addr not used for slave mode
-    );
-    #[cfg(feature = "transport_i2c")]
-    let mut server: Server<_, MAX_OUTSTANDING> = {
+    let (i2c_recv, mut server, mut i2c_reader) = {
+        let i2c_recv = I2cDevice::new(
+            I2C.get_task_id(),
+            Controller::I2C1,
+            PortIndex(0),
+            None,
+            0x00, // Address unused for slave mode; configured via configure_slave_address()
+        );
+        i2c_recv.configure_slave_address(I2C_OWN_ADDR).unwrap_lite();
+        i2c_recv.enable_slave_receive().unwrap_lite();
+        i2c_recv.enable_slave_notification(notifications::I2C_RX_BIT).unwrap_lite();
+        
         let i2c_sender = i2c::I2cSender::new(I2C.get_task_id());
-        Server::new(mctp::Eid(INITIAL_EID), 0, i2c_sender)
+        let server = Server::new(mctp::Eid(INITIAL_EID), 0, i2c_sender);
+        let i2c_reader = mctp_stack::i2c::MctpI2cHandler::new();
+        
+        (i2c_recv, server, i2c_reader)
     };
 
     let state = sys_get_timer();
@@ -99,23 +105,28 @@ fn main() -> ! {
     let notification_mask =
         notifications::RX_DATA_MASK | notifications::TIMER_MASK;
     #[cfg(feature = "transport_i2c")]
-    let notification_mask = notifications::TIMER_MASK;
+    let notification_mask = notifications::I2C_RX_MASK | notifications::TIMER_MASK;
     loop {
         let msg = sys_recv_open(&mut msg_buf, notification_mask);
 
-        #[cfg(feature = "transport_serial")]
-        handle_serial_transport(&msg, &mut server, &usart, &mut serial_reader);
+        if msg.sender == TaskId::KERNEL {
+            // Handle kernel notifications
+            #[cfg(feature = "transport_serial")]
+            if (msg.operation & notifications::RX_DATA_MASK) != 0 {
+                handle_serial_transport(&msg, &mut server, &usart, &mut serial_reader);
+            }
 
-        if msg.sender == TaskId::KERNEL
-            && (msg.operation & notifications::TIMER_MASK) != 0
-        {
-            // TODO: Multiplex timer to recv I2C packets (or implemnt interrupt-driven I2C)
-            let state = sys_get_timer();
-            server.update(state.now);
-            continue;
-        }
+            #[cfg(feature = "transport_i2c")]
+            if (msg.operation & notifications::I2C_RX_MASK) != 0 {
+                handle_i2c_transport(&msg, &mut server, &i2c_recv, &mut i2c_reader);
+            }
 
-        if msg.sender != TaskId::KERNEL {
+            if (msg.operation & notifications::TIMER_MASK) != 0 {
+                let state = sys_get_timer();
+                server.update(state.now);
+            }
+        } else {
+            // Handle IPC messages from other tasks
             handle_mctp_msg(&msg_buf, msg, &mut server);
         }
     }
@@ -123,22 +134,55 @@ fn main() -> ! {
 
 #[cfg(feature = "transport_serial")]
 fn handle_serial_transport<S: mctp_stack::Sender, const OUTSTANDING: usize>(
-    msg: &RecvMessage,
+    _msg: &RecvMessage,
     server: &mut server::Server<S, OUTSTANDING>,
     uart: &RefCell<Uart>,
     serial_reader: &mut mctp_stack::serial::MctpSerialHandler,
 ) {
-    if msg.sender == TaskId::KERNEL
-        && (msg.operation & notifications::RX_DATA_MASK) != 0
-    {
-        let usart = &mut uart.borrow_mut();
-        let pkt = serial_reader.recv(&mut usart.deref_mut());
-        match server.stack.inbound(pkt.unwrap_lite()) {
-            Ok(_) => {}
-            Err(_) => return,
-        };
-        let state = sys_get_timer();
-        server.update(state.now);
+    let usart = &mut uart.borrow_mut();
+    let pkt = serial_reader.recv(&mut usart.deref_mut());
+    match server.stack.inbound(pkt.unwrap_lite()) {
+        Ok(_) => {}
+        Err(_) => return,
+    };
+    let state = sys_get_timer();
+    server.update(state.now);
+}
+
+#[cfg(feature = "transport_i2c")]
+fn handle_i2c_transport<S: mctp_stack::Sender, const OUTSTANDING: usize>(
+    _msg: &RecvMessage,
+    server: &mut server::Server<S, OUTSTANDING>,
+    i2c_device: &I2cDevice,
+    i2c_reader: &mut mctp_stack::i2c::MctpI2cHandler,
+) {
+    match i2c_device.get_slave_message() {
+        Ok(slave_msg) => {
+            let data = slave_msg.data();
+            log::trace!("I2C MCTP RX: {:02x?}", data);
+            match i2c_reader.recv(data) {
+                Ok(pkt) => {
+                    match server.stack.inbound(pkt) {
+                        Ok(_) => {
+                            let state = sys_get_timer();
+                            server.update(state.now);
+                        }
+                        Err(e) => {
+                            log::warn!("MCTP stack inbound error: {:?}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("I2C MCTP decode error: {:?}", e);
+                }
+            }
+        }
+        Err(ResponseCode::NoSlaveMessage) => {
+            // Spurious notification, ignore
+        }
+        Err(e) => {
+            log::warn!("I2C slave message error: {:?}", e);
+        }
     }
 }
 
