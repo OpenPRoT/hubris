@@ -1,0 +1,32 @@
+[package]
+name = "drv-ast1060-i2c"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ast1060-pac = { workspace = true }
+bitfield = { workspace = true }
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+
+drv-i2c-api = { path = "../i2c-api" }
+drv-i2c-types = { path = "../i2c-types" }
+ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
+userlib = { path = "../../sys/userlib" }
+
+[features]
+slave = []  # Enable I2C slave/target mode support
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
