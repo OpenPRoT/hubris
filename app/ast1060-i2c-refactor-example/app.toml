@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024 Advanced Micro Devices, Inc.
+#
+# AST1060 I2C Refactor Example App
+# 
+# This app tests the refactored I2C driver that delegates to aspeed-ddk i2c_core.
+# It uses drv-ast1060-i2c-refactor instead of the original drv-ast1060-i2c.
+
+name = "ast1060-i2c-refactor-example"
+target = "thumbv7em-none-eabihf"
+board = "ast1060-rot"
+chip = "../../chips/ast1060"
+stacksize = 1024 
+
+[kernel]
+name = "ast1060-i2c-refactor-example"
+requires = {flash = 20000, ram = 3072}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 8192, ram = 4096}
+start = true
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+# I2C server using the REFACTORED driver (delegates to aspeed-ddk i2c_core)
+[tasks.i2c]
+name = "drv-openprot-i2c-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+features = ["ast1060-refactor"]  # Use refactored driver instead of original
+no-default-features = true       # Disable default "ast1060" feature
+stacksize = 2048
+uses = ["scu", "i2c_global", "i2c2", "i2c_buffer2"]
+notifications = ["i2c-irq"]
+
+[tasks.i2c.interrupts]
+"i2c2.irq" = "i2c-irq"
+
+[tasks.i2c_client]
+name = "task-i2c-client"
+priority = 4
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 2048
+task-slots = ["i2c", "uart_driver"]
+notifications = ["slave-rx", "timer"]
+
+[tasks.uart_driver]
+name = "drv-ast1060-uart"
+priority = 2
+max-sizes = {flash = 8192, ram = 2048}
+uses = ["uart"]
+start = true
+notifications = ["uart-irq"]
+interrupts = {"uart.irq" = "uart-irq"}

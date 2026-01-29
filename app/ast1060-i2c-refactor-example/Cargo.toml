@@ -1,0 +1,21 @@
+[package]
+edition = "2021"
+name = "ast1060-i2c-refactor-example"
+version = "0.1.0"
+description = "Test app for AST1060 I2C driver refactored to use aspeed-ddk i2c_core"
+
+[features]
+jtag-halt = []
+
+[dependencies]
+aspeed-ddk = { git = "https://github.com/OpenPRoT/aspeed-rust.git", branch = "i2c-core" }
+ast1060-pac = { workspace = true, features = ["rt"] }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+kern = { path = "../../sys/kern" }
+
+[[bin]]
+name = "ast1060-i2c-refactor-example"
+path = "src/main.rs"
+test = false
+bench = false
