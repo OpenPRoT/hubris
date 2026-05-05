@@ -1,3 +1,9 @@
+# OpenPRoT usage of Hubris
+
+OpenPRoT used Hubris as its RTOS during early stages of development. The RTOS has
+since been migrated to Pigweed Kernel instead. As such, this Hubris fork is no longer
+needed and archived as a read-only repository.
+
 # Hubris
 
 ![dist](https://github.com/oxidecomputer/hubris/actions/workflows/dist.yml/badge.svg)
